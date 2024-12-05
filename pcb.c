@@ -5,9 +5,14 @@ static pcb_t pcbFree_table[MAXPROC];
 static int next_pid = 1;
 
 void initPcbs() {
+    LIST_HEAD(pcbFree_h);
+    for(i=0; i<MAXPROC;i++){
+        freePcb(pcbFree_table[i]);
+    }
 }
 
 void freePcb(pcb_t* p) {
+    list_add(p, &pcbFree_h);
 }
 
 pcb_t* allocPcb() {
