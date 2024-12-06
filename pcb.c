@@ -71,9 +71,13 @@ static state_t state_t_init(state_t var){
   return var;
 }
 
-void mkEmptyProcQ(struct list_head* head) {}
+void mkEmptyProcQ(struct list_head* head) {
+    INIT_LIST_HEAD(head); 
+}
 
-int emptyProcQ(struct list_head* head) {}
+int emptyProcQ(struct list_head* head) {
+      return list_empty(head);
+}
 
 void insertProcQ(struct list_head* head, pcb_t* p) {}
 
