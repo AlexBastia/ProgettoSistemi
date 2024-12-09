@@ -72,20 +72,45 @@ static state_t state_t_init(state_t var){
 }
 
 void mkEmptyProcQ(struct list_head* head) {
-    INIT_LIST_HEAD(head); 
+  INIT_LIST_HEAD(head); 
 }
 
 int emptyProcQ(struct list_head* head) {
-      return list_empty(head);
+  return list_empty(head);
 }
 
-void insertProcQ(struct list_head* head, pcb_t* p) {}
+void insertProcQ(struct list_head* head, pcb_t* p) {
+  list_add_tail(head, p);
+}
 
-pcb_t* headProcQ(struct list_head* head) {}
+pcb_t* headProcQ(struct list_head* head) {
+  return list_next(head);
+}
 
-pcb_t* removeProcQ(struct list_head* head) {}
+pcb_t* removeProcQ(struct list_head* head) {
+  // Dobbiamo rimuovere proprio head (sentinella) oppure il suo next
+  // io e il basta facciamo di testa nostra
+  pcb_t* tmp = headProcQ(head);
+  list_del(tmp); 
+  
+  return tmp;
+  
+}
 
-pcb_t* outProcQ(struct list_head* head, pcb_t* p) {}
+pcb_t* outProcQ(struct list_head* head, pcb_t* p) {
+  if(p == NULL) return NULL;
+  
+  else{
+    struct list_head* pos;
+    list_for_each(pos, head) {
+      if(&p->p_list == pos) {
+        list_del(p);
+        return(p);
+      }
+    }
+    return NULL;
+  }
+}
 
 int emptyChild(pcb_t* p) {}
 
