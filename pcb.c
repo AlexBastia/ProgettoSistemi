@@ -112,10 +112,42 @@ pcb_t* outProcQ(struct list_head* head, pcb_t* p) {
   }
 }
 
-int emptyChild(pcb_t* p) {}
+int emptyChild(pcb_t* p) {
+ return list_empty(&p->p_child);
+}
 
-void insertChild(pcb_t* prnt, pcb_t* p) {}
+void insertChild(pcb_t* prnt, pcb_t* p) {
+  list_add(&p->p_list, &prnt->p_child);
+  p->p_parent=prnt;  //imposto il padre del processo che ho appena messo come figlio
+}
 
-pcb_t* removeChild(pcb_t* p) {}
+pcb_t* removeChild(pcb_t* p) {
+  if(emptyChild(p)){
+    return NULL;
+  }
 
-pcb_t* outChild(pcb_t* p) {}
+  struct list_head* child = p->p_child.next;  //considero il next della sentinella come primo figlio
+  list_del(child);
+  pcb_t* removed_child = container_of(child, pcb_t, p_list);
+  removed_child->p_parent=NULL;
+  return removed_child;
+}
+
+pcb_t* outChild(pcb_t* p) {
+  if(p->p_parent==NULL){
+    return NULL;
+  }
+
+  pcb_t *parent = p->p_parent;
+  struct list_head *child=NULL;
+  list_for_each(child, &parent->p_child){
+    if(child==&p->p_list){
+      break;
+    }
+  };
+
+  list_del(child);
+  p->p_parent=NULL;
+  return p;
+
+}
