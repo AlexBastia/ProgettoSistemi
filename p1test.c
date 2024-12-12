@@ -257,6 +257,7 @@ int main(void) {
         procp[i] = allocPcb();
         if (insertBlocked(&sem[i], procp[i]))
             adderrbuf("insertBlocked(1): unexpected TRUE   ");
+        addokbuf("inserito il semaforo");//! eliminare poi
     }
     addokbuf("insertBlocked test #2 started  \n");
     for (i = 0; i < 10; i++) {
