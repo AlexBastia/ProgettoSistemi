@@ -79,4 +79,11 @@ pcb_t* outBlocked(pcb_t* p) {
 }
 
 pcb_t* headBlocked(int* semAdd) {
+    semd_t * pos;
+    list_for_each_entry(pos, &semd_h, s_link){
+        if(semAdd == pos->s_key){
+            return headProcQ(&pos->s_procq);
+        }
+    }
+    return NULL;
 }
