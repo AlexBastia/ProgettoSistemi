@@ -38,8 +38,20 @@ int insertBlocked(int* semAdd, pcb_t* p) {
 }
 
 pcb_t* removeBlocked(int* semAdd) {
-    
+    semd_t * pos;
+    list_for_each_entry(pos, &semd_h, s_link){
+        if(pos->s_key == semAdd){
+            pcb_t *p= removeProcQ(pos->s_procq);
+            if(emptyProcQ(pos->s_procq)){
+                list_del(&pos->s_link);
+                list_add(&pos->s_link, &semdFree_h);
+                return pos;
+            };
+        };
+    };
+    return NULL;
 }
+
 
 pcb_t* outBlockedPid(int pid) {
 
