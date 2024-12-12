@@ -257,7 +257,6 @@ int main(void) {
         procp[i] = allocPcb();
         if (insertBlocked(&sem[i], procp[i]))
             adderrbuf("insertBlocked(1): unexpected TRUE   ");
-        addokbuf("inserito il semaforo");//! eliminare poi
     }
     addokbuf("insertBlocked test #2 started  \n");
     for (i = 0; i < 10; i++) {
@@ -290,10 +289,13 @@ int main(void) {
 
     if (headBlocked(&sem[11]) != NULL)
         adderrbuf("headBlocked: nonNULL for a nonexistent queue   ");
+    addokbuf("1  \n"); 
     if ((q = headBlocked(&sem[9])) == NULL)
         adderrbuf("headBlocked(1): NULL for an existent queue   ");
+    addokbuf("2  \n"); 
     if (q != procp[9])
         adderrbuf("headBlocked(1): wrong process returned   ");
+    addokbuf("3  \n"); 
     p = outBlocked(q);
     if (p != q)
         adderrbuf("outBlocked(1): couldn't remove from valid queue   ");

@@ -87,8 +87,8 @@ pcb_t* outProcQ(struct list_head* head, pcb_t* p) {
     struct list_head* pos;
     list_for_each(pos, head) {
       if(&p->p_list == pos) {
-        list_del(p);
-        return(p);
+        list_del(&p->p_list);   //qui prima era solo list_del(p) quindi dava errore
+        return p;
       }
     }
     return NULL;
