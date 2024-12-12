@@ -4,6 +4,15 @@ static struct list_head pcbFree_h;
 static pcb_t pcbFree_table[MAXPROC];
 static int next_pid = 1;
 
+void *memcpy(void *dest, const void *src, unsigned int len){
+  char* d = dest;
+  const char *s = src;
+  while(len--){
+    *d--=*s++;
+  }
+  return dest;
+}
+
 void initPcbs() {
   struct list_head* pcbst = &pcbFree_h;
   INIT_LIST_HEAD(pcbst);
@@ -33,42 +42,12 @@ pcb_t* allocPcb() {
   INIT_LIST_HEAD(&newPcb->p_sib);
 
 
-  /*il campo p_s del processo è di tipo struct state_t, definito in types.h di uriscv 
-  (vedete riga 10 del file types.h dentro la cartella headers)
-  
-  typedef struct state {
-  unsigned int entry_hi;
-  unsigned int cause;
-  unsigned int status;
-  unsigned int pc_epc;
-  unsigned int mie;
-  unsigned int gpr[STATE_GPR_LEN];
-  } state_t;  
-
-  ho pensato di fare una funzione privata che può servire se dovessimo avere bisogno altre volte di inizializzare
-  una variabile di questo tipo, se doveste trovare macro/soluzioni migliori modificate pure come volete
-  */
-  newPcb->p_s = state_t_init(newPcb->p_s);
-
-  newPcb->p_time=NULL;
+  newPcb->p_time=(int)NULL;
   newPcb->p_semAdd=NULL;
   newPcb->p_supportStruct=NULL;
   newPcb->p_pid=next_pid;
   // Ritorna puntatore
   return newPcb;
-}
-
-static state_t state_t_init(state_t var){
-  var.entry_hi=NULL;
-  var.cause=NULL;
-  var.status=NULL;
-  var.pc_epc=NULL;
-  var.mie=NULL;
-  for(int i=0; i<STATE_GPR_LEN; i++){
-    var.gpr[i]=NULL;
-  }
-
-  return var;
 }
 
 void mkEmptyProcQ(struct list_head* head) {
@@ -80,18 +59,22 @@ int emptyProcQ(struct list_head* head) {
 }
 
 void insertProcQ(struct list_head* head, pcb_t* p) {
-  list_add_tail(head, p);
+  list_add_tail(p, head);
 }
 
 pcb_t* headProcQ(struct list_head* head) {
-  return list_next(head);
+  return container_of(list_next(head), pcb_t, p_list);
 }
 
 pcb_t* removeProcQ(struct list_head* head) {
   // Dobbiamo rimuovere proprio head (sentinella) oppure il suo next
   // io e il basta facciamo di testa nostra
+  if(list_empty(head)){
+    return NULL;
+  }
   pcb_t* tmp = headProcQ(head);
-  list_del(tmp); 
+
+  list_del(&tmp->p_list); 
   
   return tmp;
   

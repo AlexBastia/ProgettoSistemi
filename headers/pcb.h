@@ -4,9 +4,11 @@
 #include "../../headers/listx.h"
 #include "../../headers/types.h"
 
+void *memcpy(void *dest, const void *src, unsigned int len);
 void initPcbs();
 void freePcb(pcb_t* p);
 pcb_t* allocPcb();
+static state_t state_t_init(state_t var);
 void mkEmptyProcQ(struct list_head* head);
 int emptyProcQ(struct list_head* head);
 void insertProcQ(struct list_head* head, pcb_t* p);
