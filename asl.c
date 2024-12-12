@@ -1,4 +1,5 @@
 #include "./headers/asl.h"
+#include "./headers/pcb.h"
 
 static semd_t semd_table[MAXPROC];
 static struct list_head semdFree_h;
@@ -41,8 +42,8 @@ pcb_t* removeBlocked(int* semAdd) {
     semd_t * pos;
     list_for_each_entry(pos, &semd_h, s_link){
         if(pos->s_key == semAdd){
-            pcb_t *p= removeProcQ(pos->s_procq);
-            if(emptyProcQ(pos->s_procq)){
+            pcb_t *p= removeProcQ(&pos->s_procq);
+            if(emptyProcQ(&pos->s_procq)){
                 list_del(&pos->s_link);
                 list_add(&pos->s_link, &semdFree_h);
                 return pos;
@@ -51,16 +52,14 @@ pcb_t* removeBlocked(int* semAdd) {
     };
     return NULL;
 }
-
-
+//supponiamo sia come outBlocked ma con in input solo il pid, che consegue dover scorrere tutti i semafori e tutte le loro queue
 pcb_t* outBlockedPid(int pid) {
-
 }
 
 pcb_t* outBlocked(pcb_t* p) {
-
+    semd_t* sem = container_of(p->p_semAdd, semd_t, s_key);
+    return outProcQ(&sem->s_procq, p);
 }
 
 pcb_t* headBlocked(int* semAdd) {
-
 }
