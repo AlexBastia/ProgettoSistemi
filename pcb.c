@@ -78,7 +78,7 @@ void insertProcQ(struct list_head* head, pcb_t* p) {
 // Do not remove this PCB from the process queue. 
 // Return NULL if the process queue is empty.
 pcb_t* headProcQ(struct list_head* head) {
-  return container_of(list_next(head), pcb_t, p_list);
+  return container_of(list_next(head), pcb_t, p_list); //list_next ritrona puntatore a list_head quindi utilizzo container_of per ottenere il puntatore a pcb_t
 }
 
 // Remove the first (i.e. head) element from the process queue whose head pointer is pointed to
@@ -137,7 +137,7 @@ pcb_t* removeChild(pcb_t* p) {
       p->p_child.next;  // considero il next della sentinella come primo figlio
   list_del(child);
   pcb_t* removed_child = container_of(child, pcb_t, p_list);
-  removed_child->p_parent = NULL;
+  removed_child->p_parent = NULL; //visto  che non ha più un padre
   return removed_child;
 }
 
@@ -145,19 +145,19 @@ pcb_t* removeChild(pcb_t* p) {
 // no parent, return NULL; otherwise, return p. Note that the element pointed to by p could be
 // in an arbitrary position (i.e. not be the first child of its parent).
 pcb_t* outChild(pcb_t* p) {
-  if (p->p_parent == NULL) {
-    return NULL;
+  if (p->p_parent == NULL) { //se il processo non ha un padre
+    return NULL; //ritorno NULL
   }
 
-  pcb_t* parent = p->p_parent;
-  struct list_head* child = NULL;
-  list_for_each(child, &parent->p_child) {
-    if (child == &p->p_list) {
-      break;
+  pcb_t* parent = p->p_parent; //padre del processo
+  struct list_head* child = NULL; //inizializzo a NULL
+  list_for_each(child, &parent->p_child) { //scorro la lista dei figli del padre
+    if (child == &p->p_list) { //se trovo il figlio
+      break;  //esco dal ciclo
     }
   };
 
-  list_del(child);
-  p->p_parent = NULL;
+  list_del(child); //rimuovo il figlio
+  p->p_parent = NULL; //il figlio non ha più un padre
   return p;
 }

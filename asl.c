@@ -113,11 +113,11 @@ pcb_t* outBlocked(pcb_t* p) {
   return outProcQ(&pos->s_procq, p);
 }
 
-pcb_t* headBlocked(int* semAdd) {
-  semd_t* pos;
-  list_for_each_entry(pos, &semd_h, s_link) {
-    if (semAdd == pos->s_key) {
-      return headProcQ(&pos->s_procq);
+pcb_t* headBlocked(int* semAdd) { 
+  semd_t* pos; // semaforo
+  list_for_each_entry(pos, &semd_h, s_link) {  //scorro la lista dei semafori
+    if (semAdd == pos->s_key) { //se il semaforo è quello cercato
+      return headProcQ(&pos->s_procq); //ritorno il primo processo in coda
     }
   }
   return NULL;
