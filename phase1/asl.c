@@ -110,12 +110,7 @@ pcb_t* outBlocked(pcb_t* p) {
   // semAdd che è un pcb_t*, ecco perche dava errore ora cerco il semaforo tra
   // quelli attivi, se lo trovo esco dal ciclo e faccio outProcq altrimenti
   // ritorno null
-  pcb_t* p_out = outProcQ(&pos->s_procq, p);
-  if (emptyProcQ(&pos->s_procq)) {
-    list_del(&pos->s_link);
-    list_add(&pos->s_link, &semdFree_h);
-  }
-  return p_out;
+  return outProcQ(&pos->s_procq, p);
 }
 
 pcb_t* headBlocked(int* semAdd) { 

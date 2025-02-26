@@ -1,7 +1,8 @@
 #include "./headers/pcb.h"
+
 static struct list_head pcbFree_h;
 static pcb_t pcbFree_table[MAXPROC];
-static int next_pid = 0;
+static int next_pid = 1;
 
 
 void* memcpy(void* dest, const void* src, unsigned int len) {
@@ -53,14 +54,7 @@ pcb_t* allocPcb() {
   newPcb->p_time = (int)NULL;
   newPcb->p_semAdd = NULL;
   newPcb->p_supportStruct = NULL;
-  newPcb->p_pid = ++next_pid;
-  newPcb->p_s.cause=0;
-  newPcb->p_s.entry_hi=0;
-  newPcb->p_s.status=0;
-  newPcb->p_s.pc_epc=0;
-  for(int i=0; i<STATE_GPR_LEN; i++){
-    newPcb->p_s.gpr[i]=0;
-  }
+  newPcb->p_pid = next_pid;
   // Ritorna puntatore
   return newPcb;
 }
@@ -127,7 +121,7 @@ int emptyChild(pcb_t* p) { return list_empty(&p->p_child); }
 
 // Make the PCB pointed to by p a child of the PCB pointed to by prnt
 void insertChild(pcb_t* prnt, pcb_t* p) {
-  list_add(&p->p_sib, &prnt->p_child);
+  list_add(&p->p_list, &prnt->p_child);
   p->p_parent =
       prnt;  // imposto il padre del processo che ho appena messo come figlio
 }
@@ -142,7 +136,7 @@ pcb_t* removeChild(pcb_t* p) {
   struct list_head* child =
       p->p_child.next;  // considero il next della sentinella come primo figlio
   list_del(child);
-  pcb_t* removed_child = container_of(child, pcb_t, p_sib);
+  pcb_t* removed_child = container_of(child, pcb_t, p_list);
   removed_child->p_parent = NULL; //visto  che non ha più un padre
   return removed_child;
 }
@@ -158,7 +152,7 @@ pcb_t* outChild(pcb_t* p) {
   pcb_t* parent = p->p_parent; //padre del processo
   struct list_head* child = NULL; //inizializzo a NULL
   list_for_each(child, &parent->p_child) { //scorro la lista dei figli del padre
-    if (child == &p->p_sib) { //se trovo il figlio
+    if (child == &p->p_list) { //se trovo il figlio
       break;  //esco dal ciclo
     }
   };
