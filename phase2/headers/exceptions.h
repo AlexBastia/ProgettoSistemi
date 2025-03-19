@@ -7,6 +7,5 @@ void uTLB_RefillHandler(void);
 void exceptionHandler(void);
 
 void syscallHandler(state_t*);
-void interruptHandler();
 void tlbExceptionHandler(state_t*);
 void programTrapHandler(state_t*);

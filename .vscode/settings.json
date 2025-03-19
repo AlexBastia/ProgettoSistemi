@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "liburiscv.h": "c"
+        "liburiscv.h": "c",
+        "types.h": "c"
     }
 }
