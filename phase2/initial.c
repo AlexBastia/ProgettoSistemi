@@ -20,8 +20,8 @@ int main() {
    * Stacks in μRISC-V grow down. */
   /*TODO: cazzo vuol dire sta roba sopra??*/
 
-  // passupvector->exception_handler = (memaddr)exceptionHandler; TODO: swap
-  // with our function
+  // passupvector->exception_handler = (memaddr)exceptionHandler; 
+  // TODO: swap with our function
 
   /*Set the Stack pointer for the Nucleus exception handler to the top of the
 Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and 0x20020000 +
