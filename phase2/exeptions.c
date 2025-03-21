@@ -1,6 +1,8 @@
 #include "headers/exceptions.h"
 #include "headers/interrupts.h"
 
+
+
 void uTLB_RefillHandler() {
     int prid = getPRID();
     setENTRYHI(0x80000000);
@@ -9,7 +11,13 @@ void uTLB_RefillHandler() {
     LDST(GET_EXCEPTION_STATE_PTR(prid));
 }
 
+void timer(cpu_t *time){
+    STCK(*time);
+}
+
 void exceptionHandler(){
+    cpu_t cpu_time_init, cpu_time_end;
+    timer(&cpu_time_init); //call the timer function to update the time of the current process
     state_t *current_state = (GET_EXCEPTION_STATE_PTR(getPRID()));
     unsigned int cause = getCAUSE() & CAUSE_EXCCODE_MASK;  //as specified in phase 2 specs, use the bitwise AND to get the exception code
 
@@ -22,6 +30,12 @@ void exceptionHandler(){
     }else{
         programTrapHandler(current_state);
     }
+    
+    pcb_t *curr = current_process[getPRID()];
+    timer(&cpu_time_end);  //call the timer function to update the time of the current process  
+    curr->p_time += (cpu_time_end - cpu_time_init); //update the time of the current process
+
+    //SE LE 3 RIGHE QUA SOPRA DANNO PROBLEMI RIVEDERE IMPLEMENTAZIONE
 }
 
 //this helper function is used to terminate the current process subtree 
@@ -36,6 +50,8 @@ static void terminateSubtree(pcb_t* process){
         }
     }
 }
+
+
 
 static void syscallHandler(state_t* state){
     int syscall_code = state->reg_a0;
@@ -116,6 +132,49 @@ static void syscallHandler(state_t* state){
             scheduler();  //call the scheduler to select the next process
             break;
         case PASSEREN:
+            ACQUIRE_LOCK(&global_lock);
+            int *semAdd = state->reg_a1;  //get the semaphore address
+            (*semAdd)--;  //decrement the semaphore value
+            if(*semAdd < 0){  //if the semaphore address is negative, its value can't be decreased
+               pcb_t* current = current_process[getPRID()];  //get the current process
+               int ret = insertBlocked(semAdd, current);  //insert the current process in the blocked list of the semaphore
+
+               state->pc_epc += 4;  //increment the program counter
+               current->p_s = *state;  //save the state of the current process
+
+               RELEASE_LOCK(&global_lock);
+               scheduler();
+               return;
+            }
+            RELEASE_LOCK(&global_lock);
+            break;
+        case VERHOGEN:
+            ACQUIRE_LOCK(&global_lock);
+            int *semAdd = state->reg_a1;  //get the semaphore address
+            (*semAdd)++;  //increment the semaphore value
+            if(*semAdd <= 0){  //if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+                pcb_t* unblocked = removeBlocked(semAdd);  //remove the first process from the blocked list of the semaphore
+                if(unblocked!=NULL){
+                    //insertProcQ(&readyQueue, unblocked);  aspetto readyQueue
+                }
+            }
+            RELEASE_LOCK(&global_lock);
+            break;
+        case DOIO:
+            ACQUIRE_LOCK(&global_lock);
+            int *commandAddress = state->reg_a1;  //get the command address
+            int commandValue = state->reg_a2;  //get the command value
+
+            if(commandAddress==NULL){
+                state->reg_a0 = -1;  //if the command address is NULL, return -1
+                RELEASE_LOCK(&global_lock);
+                break;
+            }
+
+            pcb_t *current = current_process[getPRID()];  //get the current process
+            current-> p_s = *state;  //save the state of the current process
+
+            //come lo trovo il semaforo associato al device?
             
 
         

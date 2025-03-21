@@ -10,6 +10,7 @@ void interruptHandler(state_t* current_state, unsigned int cause){
         int deviceNumber, int_line_no;
         findInterruptingDevice(&int_line_no, &deviceNumber);
     }
+    RELEASE_LOCK(&global_lock);
 }
 
 static void findInterruptingDevice(int* int_line, int* device_no){

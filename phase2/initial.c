@@ -37,6 +37,7 @@ Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and 0x20020000 +
   for (int i = 0; i < UPROCMAX; i++)  // TODO: capire anche qui se NCPU o questo
     current_process[i] = NULL;
   global_lock = 0;
+  
   // TODO: inizializza il resto e capisci se va bene cosi
 
   /* Load Interval Timer */
