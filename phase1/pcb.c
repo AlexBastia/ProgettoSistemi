@@ -59,6 +59,7 @@ pcb_t* allocPcb() {
   newPcb->p_s.entry_hi = 0;
   newPcb->p_s.status = 0;
   newPcb->p_s.pc_epc = 0;
+  
   for (int i = 0; i < STATE_GPR_LEN; i++) {
     newPcb->p_s.gpr[i] = 0;
   }
