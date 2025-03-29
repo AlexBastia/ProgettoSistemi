@@ -1,5 +1,8 @@
 #include <uriscv/liburiscv.h>
 #include "headers/initial.h"
+#include "headers/scheduler.h"
+#include "headers/interrupts.h"
+#include "headers/exceptions.h"
 
 #include "../phase1/headers/asl.h"
 #include "../phase1/headers/pcb.h"
