@@ -1,32 +1,23 @@
 #include "headers/initial.h"
 
+#include <uriscv/types.h>
+
 #include "../phase1/headers/asl.h"
 #include "../phase1/headers/pcb.h"
+#include "headers/scheduler.h"
 
 extern void test();
 
 int main() {
-  // TODO: do I need to declare the Pass up vector?? Note: PASSUPVECTOR is a
-  // constant with the memaddr off the PUV
-
   /* Populate Pass Up Vector */
-
-  // passupvector->tlb_refll_handler = (memaddr)uTLB_RefillHandler; TODO: swap
-  // with our own funcion
-
-  /* Set the Stack Pointer for the Nucleus TLB-Refill event handler to the top
-   * of the Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and
-   * 0x20020000 + (cpu_id * PAGESIZE) for CPUs with ID greater or equal to 1.
-   * Stacks in μRISC-V grow down. */
-  /*TODO: cazzo vuol dire sta roba sopra??*/
-
-  // passupvector->exception_handler = (memaddr)exceptionHandler; 
-  // TODO: swap with our function
-
-  /*Set the Stack pointer for the Nucleus exception handler to the top of the
-Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and 0x20020000 +
-(cpu_id * PAGESIZE) for CPUs with ID greater or equal to 1.*/
-  /*TODO: stessa cosa, come si imposta lo stack pointer?*/
+  for (int i = 0; i < NCPU; i++) {
+    passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR + (0x10 * i);
+    passupvector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
+    passupvector->tlb_refill_stackPtr =
+        (i == 0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
+    passupvector->exception_handler = (memaddr)exceptionHandler;
+    passupvector->exception_stackPtr = passupvector->tlb_refill_stackPtr;
+  }
 
   /* Initialize Level 2 data structures */
   initPcbs();
@@ -34,11 +25,10 @@ Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and 0x20020000 +
 
   /* Initialize global variables (in header) */
   process_count = 0;
-  for (int i = 0; i < UPROCMAX; i++)  // TODO: capire anche qui se NCPU o questo
-    current_process[i] = NULL;
+  INIT_LIST_HEAD(&ready_queue);
+  for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
-  
-  // TODO: inizializza il resto e capisci se va bene cosi
+  /* TODO: init device semaphores */
 
   /* Load Interval Timer */
   // IntervalTimer.load(PSECOND) TODO: swappare con nostra funzione
@@ -49,20 +39,32 @@ Nucleus stack page: 0x2000.1000 (constant KERNELSTACK) for CPU0 and 0x20020000 +
   pcb->p_s.status = MSTATUS_MIE_MASK | MSTATUS_MPP_M;
   // TODO: how do you set StackTop???
   pcb->p_parent = NULL;
-  /* pcb->p_child = NULL; */  // TODO: questi non posso metteli a NULL perche'
-                              // non sono puntatori...
-  /* pcb->p_sib = NULL; */
+  INIT_LIST_HEAD(&pcb->p_sib);
+  INIT_LIST_HEAD(&pcb->p_child);
   pcb->p_time = 0;
   pcb->p_semAdd = NULL;
   pcb->p_supportStruct = NULL;
   pcb->p_s.pc_epc = (memaddr)test;
 
+  list_add_tail(&ready_queue, &pcb->p_list); /* TODO: aggiunto in coda per
+                                                evitare starvation, va bene? */
+  process_count++;
+
   /*IRT*/
   // TODO: devo crearlo io?
 
   /* Set State for other CPUs */
-  // TODO: da me dice che ne abbiamo solo 1...
+  for (int cpu_id = 1; cpu_id < NCPU; cpu_id++) {
+    state_t *processor_state = (state_t *)BIOSDATAPAGE + (cpu_id * 0x94);
+    processor_state->status = MSTATUS_MPP_M;
+    processor_state->pc_epc = (memaddr)Scheduler;
+    processor_state->reg_sp = 0x20020000 + (cpu_id * PAGESIZE);
+    processor_state->entry_hi = 0;
+    processor_state->cause = 0;
+    processor_state->mie = 0;
+  }
+  /* TODO: come mai non lo devo fare per il primo CPU? */
 
   /* Call Scheduler */
-  // TODO: aggiungi chiamata alla nostra funzione
+  Scheduler();
 }
