@@ -19,7 +19,7 @@ void exceptionHandler(){
     cpu_t cpu_time_init, cpu_time_end;
     timer(&cpu_time_init); //call the timer function to update the time of the current process
     state_t *current_state = (GET_EXCEPTION_STATE_PTR(getPRID()));
-    unsigned int cause = getCAUSE() & CAUSE_EXCCODE_MASK;  //as specified in phase 2 specs, use the bitwise AND to get the exception code
+    unsigned int cause = getCAUSE();  //as specified in phase 2 specs, use the bitwise AND to get the exception code
 
     if(CAUSE_IS_INT(cause)){
         interruptHandler(current_state, cause);  //if the cause is an interrupt, call the interrupt handler
@@ -44,7 +44,7 @@ static void terminateSubtree(pcb_t* process){
         pcb_t* child = removeChild(process); //remove the first child of the process
         if(child!=NULL){
             terminateSubtree(child);
- //         outProcQ(&readyQueue, child);   aspetto implementazione readyqueue
+            outProcQ(&ready_queue, child);   
             process_count--;
             freePcb(child);
         }
@@ -86,7 +86,7 @@ static void syscallHandler(state_t* state){
             }
             
 
-            //insertProcQ(&readyQueue, newPCB);  aspetto implementazione readyQueue
+            insertProcQ(&ready_queue, newPCB); 
             process_count++;
             RELEASE_LOCK(&global_lock);
             state->reg_a0 = newPCB->p_pid;  //return the pid of the new process
@@ -101,13 +101,13 @@ static void syscallHandler(state_t* state){
                 tbt = current_process[getPRID()];  //if the pid is 0, terminate the current process
             }else{
                 struct list_head* iter;
-             /* list_for_each(iter, &readyQueue){
-                    pcb_t* pcb = container_of(iter, pcb_t, p_list);   //aspetto readyQueue
+                list_for_each(iter, &ready_queue){
+                    pcb_t* pcb = container_of(iter, pcb_t, p_list); 
                     if(pcb->p_pid == pid){
                         tbt = pcb;
                         break;
                     }
-                }  */
+                }  
             }
 
             if(tbt == NULL){
@@ -124,7 +124,7 @@ static void syscallHandler(state_t* state){
                   outChild(tbt);  //remove the process from the parent's children list
             }
 
-            //outProcQ(&readyQueue, tbt);  //remove the process from the ready queue
+            outProcQ(&ready_queue, tbt); 
             process_count--;
             freePcb(tbt);  //free the PCB
 
@@ -155,7 +155,7 @@ static void syscallHandler(state_t* state){
             if(*semAdd <= 0){  //if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
                 pcb_t* unblocked = removeBlocked(semAdd);  //remove the first process from the blocked list of the semaphore
                 if(unblocked!=NULL){
-                    //insertProcQ(&readyQueue, unblocked);  aspetto readyQueue
+                    insertProcQ(&ready_queue, unblocked);  
                 }
             }
             RELEASE_LOCK(&global_lock);
@@ -177,7 +177,12 @@ static void syscallHandler(state_t* state){
             //come lo trovo il semaforo associato al device?
             
 
-        
+        case GETTIME:
+            ACQUIRE_LOCK(&global_lock);
+            pcb_t *cur = current_process[getPRID()];  //get the current process
+            state->reg_a0 = cur->p_time;  //return the time of the current process
+            RELEASE_LOCK(&global_lock);
+            break;
     }
 
     state->pc_epc += 4;  //increment the program counter
