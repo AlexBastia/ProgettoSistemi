@@ -10,7 +10,7 @@
 void Scheduler(){
     ACQUIRE_LOCK(&global_lock);
 
-    if (emptyProcQ(&readyQueue)){ // TODO capire come implementare la readyQueue
+    if (emptyProcQ(&ready_queue)){ // TODO capire come implementare la readyQueue
         if (process_count == 0){
             RELEASE_LOCK(&global_lock);
             HALT();
@@ -29,7 +29,7 @@ void Scheduler(){
             // see Dott. Rovelli’s thesis for more details.
         }
     } else{
-        pcb_t* next = removeProcQ(&readyQueue); // TODO: capire come implementare la readyQueue
+        pcb_t* next = removeProcQ(&ready_queue); // TODO: capire come implementare la readyQueue
         current_process[getPRID()] = next;
         setTIMER(TIMESLICE);
         LDST(&next->p_s); // context switch al nuovo processo 
