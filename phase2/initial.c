@@ -1,5 +1,8 @@
 #include "headers/initial.h"
 
+#include <stdint.h>
+#include <uriscv/arch.h>
+#include <uriscv/const.h>
 #include <uriscv/types.h>
 
 #include "../phase1/headers/asl.h"
@@ -28,19 +31,29 @@ int main() {
   INIT_LIST_HEAD(&ready_queue);
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
-  /* TODO: init device semaphores */
+
+  int sem_init_key = 0;
+  for (int i = 0; i < SEMDEVLEN; i++)
+    device_semaphores[i].s_key =
+        &sem_init_key;  // initialize all device semaphores to 0
 
   /* Load Interval Timer */
-  // IntervalTimer.load(PSECOND) TODO: swappare con nostra funzione
+  LDIT(PSECOND);
 
   /* Instantiate first process */
   pcb_PTR pcb = allocPcb();
+  RAMTOP(pcb->p_s.reg_sp);  // Set SP to last RAM frame
+
+  // Enable interrupts and kernel mode
   pcb->p_s.mie = MIE_ALL;
   pcb->p_s.status = MSTATUS_MIE_MASK | MSTATUS_MPP_M;
-  // TODO: how do you set StackTop???
+
+  // Set Process Tree fields to NULL
   pcb->p_parent = NULL;
-  INIT_LIST_HEAD(&pcb->p_sib);
+  INIT_LIST_HEAD(&pcb->p_sib); /* TODO: can't set p_sib and p_child to NULL, do
+                                  I have to initialize? */
   INIT_LIST_HEAD(&pcb->p_child);
+
   pcb->p_time = 0;
   pcb->p_semAdd = NULL;
   pcb->p_supportStruct = NULL;
@@ -51,7 +64,17 @@ int main() {
   process_count++;
 
   /*IRT*/
-  // TODO: devo crearlo io?
+  for (int line = 0; line < N_INTERRUPT_LINES;
+       line++) {  // For each Interrupt Line
+    for (int dev = 0; dev < N_DEV_PER_IL;
+         dev++) {  // For each Device in Interrupt Line
+      uint32_t *irt_entry = (uint32_t *)IRT_ENTRY(line, dev);
+      *irt_entry |= (1U << IRT_ENTRY_POLICY_BIT);  // Set RP bit to 1
+      for (int cpu_id = 0; cpu_id < NCPU; cpu_id++)
+        *irt_entry |= (1U << cpu_id);  // Set bit at index cpu_id (starting from
+                                       // least significant) to 1 for each CPU
+    }
+  }
 
   /* Set State for other CPUs */
   for (int cpu_id = 1; cpu_id < NCPU; cpu_id++) {

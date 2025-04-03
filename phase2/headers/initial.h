@@ -7,8 +7,8 @@
 int process_count; /* number of started, but not yet terminated processes */
 struct list_head ready_queue;  /* queue of PCBs in 'ready' state */
 pcb_PTR current_process[NCPU]; /* pointers to the running PCB on each CPU */
-/* semd_t device_semaphores[###]; TODO: capire che struttura bisogna usare -> un
- * semaforo separato per ogni device o un'array? */
-int global_lock; /* 0 or 1 */
+semd_t device_semaphores[SEMDEVLEN]; /* array of semaphores, one for each
+                                        (sub)device */
+int global_lock;                     /* 0 or 1 */
 
 #endif
