@@ -3,13 +3,13 @@
 
 
 
-void uTLB_RefillHandler() {
+/*void uTLB_RefillHandler() {
     int prid = getPRID();
     setENTRYHI(0x80000000);
     setENTRYLO(0x00000000);
     TLBWR();
     LDST(GET_EXCEPTION_STATE_PTR(prid));
-}
+}*/
 
 
 
@@ -54,15 +54,15 @@ static void terminateSubtree(pcb_t* process){
     }
 }
 
-int findDeviceIndex(unsigned int *commandAddress) {
+/*int findDeviceIndex(unsigned int *commandAddress) {
     int i;
-    for (i = 0; i < NUMERODISPOSITIVI; i++) {
+    for (i = 0; i < SEMDEVLEN; i++) {
         if (INDIRIZZIREGDISPOSITIVI[i] == commandAddress) {
             return i;  // Restituisce l'indice del semaforo
         }
     }
     return -1;  // Indirizzo non valido
-}
+}*/
 
 
 static void syscallHandler(state_t* state){
@@ -142,22 +142,22 @@ static void syscallHandler(state_t* state){
             freePcb(tbt);  //free the PCB
 
             RELEASE_LOCK(&global_lock);
-            scheduler();  //call the scheduler to select the next process
+            Scheduler();  //call the scheduler to select the next process
             break;
 
         case PASSEREN:
             ACQUIRE_LOCK(&global_lock);
-            int *semAdd = state->reg_a1;  //get the semaphore address
-            (*semAdd)--;  //decrement the semaphore value
-            if(*semAdd < 0){  //if the semaphore address is negative, its value can't be decreased
+            int *semAdd1 = state->reg_a1;  //get the semaphore address
+            (*semAdd1)--;  //decrement the semaphore value
+            if(*semAdd1 < 0){  //if the semaphore address is negative, its value can't be decreased
                pcb_t* current = current_process[getPRID()];  //get the current process
-               insertBlocked(semAdd, current);  //insert the current process in the blocked list of the semaphore
+               insertBlocked(semAdd1, current);  //insert the current process in the blocked list of the semaphore
 
                state->pc_epc += 4;  //increment the program counter
                current->p_s = *state;  //save the state of the current process
 
                RELEASE_LOCK(&global_lock);
-               scheduler();
+               Scheduler();
                return;
             }
             RELEASE_LOCK(&global_lock);
@@ -165,10 +165,10 @@ static void syscallHandler(state_t* state){
 
         case VERHOGEN:
             ACQUIRE_LOCK(&global_lock);
-            int *semAdd = state->reg_a1;  //get the semaphore address
-            (*semAdd)++;  //increment the semaphore value
-            if(*semAdd <= 0){  //if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
-                pcb_t* unblocked = removeBlocked(semAdd);  //remove the first process from the blocked list of the semaphore
+            int *semAdd2 = state->reg_a1;  //get the semaphore address
+            (*semAdd2)++;  //increment the semaphore value
+            if(*semAdd2 <= 0){  //if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+                pcb_t* unblocked = removeBlocked(semAdd2);  //remove the first process from the blocked list of the semaphore
                 if(unblocked!=NULL){
                     insertProcQ(&ready_queue, unblocked);  
                 }
@@ -190,7 +190,7 @@ static void syscallHandler(state_t* state){
             pcb_t *current = current_process[getPRID()];  //get the current process
             current-> p_s = *state;  //save the state of the current process
 
-            int devIndex = findDeviceIndex(commandAddress);  //get the device index from the command address
+            int devIndex = 0; //findDeviceIndex(commandAddress);  //get the device index from the command address
             if(devIndex<0){
                 state->reg_a0 = -1;  //if the device index is not valid, return -1
                 RELEASE_LOCK(&global_lock);
@@ -207,7 +207,7 @@ static void syscallHandler(state_t* state){
 
                 state->pc_epc += 4;  //increment the program counter
                 RELEASE_LOCK(&global_lock);
-                scheduler();
+                Scheduler();
                 return;
             }
             
@@ -229,15 +229,15 @@ static void syscallHandler(state_t* state){
 
         case GETSUPPORTPTR:
             ACQUIRE_LOCK(&global_lock);
-            pcb_t *current = current_process[getPRID()];  //get the current process
-            state->reg_a0 = (unsigned int)current->p_supportStruct;  //return the support struct of the current process
+            pcb_t *current1 = current_process[getPRID()];  //get the current process
+            state->reg_a0 = (unsigned int)current1->p_supportStruct;  //return the support struct of the current process
             RELEASE_LOCK(&global_lock);
             break;
         
         case GETPROCESSID:
             ACQUIRE_LOCK(&global_lock);
-            pcb_t *current = current_process[getPRID()];  //get the current process
-            state->reg_a0 = current->p_pid;  //return the pid of the current process
+            pcb_t *current3 = current_process[getPRID()];  //get the current process
+            state->reg_a0 = current3->p_pid;  //return the pid of the current process
             RELEASE_LOCK(&global_lock);
             break;
         
@@ -254,7 +254,7 @@ static void syscallHandler(state_t* state){
 
 void tlbExceptionHandler(state_t* state){
     int cause = state->cause & CAUSE_EXCCODE_MASK;  //get the cause of the exception
-    if(cause == EXC_TLBR){  //if the cause is a TLB refill
+    if(cause == 0){  //if the cause is a TLB refill
         uTLB_RefillHandler();
     }else{
         passUpordie(GENERALEXCEPT);
@@ -263,7 +263,7 @@ void tlbExceptionHandler(state_t* state){
 
 void programTrapHandler(state_t* state){
     int cause = state->cause & CAUSE_EXCCODE_MASK;  //get the cause of the exception
-    if(cause == EXC_TLBR){  //if the cause is a TLB refill
+    if(cause == 0){  //if the cause is a TLB refill
         uTLB_RefillHandler();
     }else{
         passUpordie(GENERALEXCEPT);

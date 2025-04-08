@@ -2,6 +2,8 @@
     "files.associations": {
         "liburiscv.h": "c",
         "types.h": "c",
-        "asl.h": "c"
+        "asl.h": "c",
+        "initial.h": "c",
+        "arch.h": "c"
     }
 }
