@@ -22,9 +22,10 @@ void exceptionHandler(){
 
     unsigned int cause = getCAUSE() & CAUSE_EXCCODE_MASK;  //as specified in phase 2 specs, use the bitwise AND to get the exception code
 
-    if(CAUSE_IS_INT(cause)){
-        interruptHandler(current_state, cause);  //if the cause is an interrupt, call the interrupt handler
-    }else if(cause == EXC_ECU || cause == EXC_ECM){
+    while(CAUSE_IS_INT(getCAUSE())){ //cycle to reenter the handler immediately if there are more than one interrupt pending
+        interruptHandler(current_state);  //if the cause is an interrupt, call the interrupt handler
+    }
+    if(cause == EXC_ECU || cause == EXC_ECM){
         syscallHandler(current_state);
     }else if(cause >= EXC_MOD && cause <= EXC_UTLBS){
         tlbExceptionHandler(current_state);
