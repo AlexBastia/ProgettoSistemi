@@ -37,11 +37,17 @@ static int findInterruptingDevice(int int_line, int device_no){
             if (bitmap & (1 << dev)) {  //if the bit is set to 1 the device caused the interrupt
                 int_line = line;
                 device_no = dev;
-                return;
+                return device_no;
             }
         }
     }
 }
 void intHandler(int n){
 
+}
+
+void timerHandler(){}
+
+int CAUSE_GET_EXCCODE(int cause){
+    return (cause & CAUSE_EXCCODE_MASK) >> 2;
 }

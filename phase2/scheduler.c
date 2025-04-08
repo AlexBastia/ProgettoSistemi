@@ -8,8 +8,9 @@
 #include "../phase1/headers/pcb.h"
 
 void Scheduler(){
+    klog_print("Scheduler start");
     ACQUIRE_LOCK(&global_lock);
-
+    klog_print("Scheduler lock acquired");
     if (emptyProcQ(&ready_queue)){ // TODO capire come implementare la readyQueue
         if (process_count == 0){
             RELEASE_LOCK(&global_lock);
@@ -32,7 +33,9 @@ void Scheduler(){
         pcb_t* next = removeProcQ(&ready_queue); // TODO: capire come implementare la readyQueue
         current_process[getPRID()] = next;
         setTIMER(TIMESLICE);
+        RELEASE_LOCK(&global_lock);
         LDST(&next->p_s); // context switch al nuovo processo 
+
     }
-    RELEASE_LOCK(&global_lock);
+    
 }

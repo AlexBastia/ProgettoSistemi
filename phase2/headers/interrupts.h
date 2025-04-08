@@ -17,4 +17,4 @@ Find the device that caused the interrupt
 @param int_line: the interrupt line that caused the interrupt
 @param device_no: the device that caused the interrupt
 */
-static void findInterruptingDevice(int* int_line, int* device_no);
+static int findInterruptingDevice(int int_line, int device_no);

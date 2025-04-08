@@ -7,6 +7,8 @@
 #include "../phase1/headers/asl.h"
 #include "../phase1/headers/pcb.h"
 #include "headers/scheduler.h"
+#include "headers/exceptions.h"
+#include "../klog.c"
 
 extern void test();
 
@@ -15,7 +17,8 @@ int process_count;
 struct list_head ready_queue;
 pcb_PTR current_process[NCPU];
 semd_t device_semaphores[SEMDEVLEN];
-volatile unsigned int global_lock;
+volatile unsigned int global_lock = 1; /* 0 or 1 */
+
 
 int main() {
   /* Populate Pass Up Vector */
@@ -39,6 +42,7 @@ int main() {
   global_lock = 0;
 
   int sem_init_key = 0;
+
   for (int i = 0; i < SEMDEVLEN; i++)
     device_semaphores[i].s_key =
         &sem_init_key;  // initialize all device semaphores to 0
@@ -93,7 +97,8 @@ int main() {
     processor_state->mie = 0;
   }
   /* TODO: come mai non lo devo fare per il primo CPU? */
-
+  klog_print("finito inital.c");
   /* Call Scheduler */
   Scheduler();
+
 }

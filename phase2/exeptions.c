@@ -1,5 +1,6 @@
 #include "headers/exceptions.h"
 #include "headers/interrupts.h"
+#include "headers/initial.h"
 
 
 
@@ -67,6 +68,7 @@ static void terminateSubtree(pcb_t* process){
 
 
 static void syscallHandler(state_t* state){
+    klog_print("inizio gestione syscall");
     int syscall_code = state->reg_a0;
 
     if(!(state->status & MSTATUS_MPP_MASK) && syscall_code<0){ //if the MPP bit is not set, the syscall was called in user mode
@@ -76,13 +78,17 @@ static void syscallHandler(state_t* state){
     }
 
     if(syscall_code>=1){ //if the syscall code is greater than 1, it is a syscall
+
+        klog_print("maggiore di 1");
         passUpordie(GENERALEXCEPT);
         return;
     }
     
+    klog_print("inizio switch");
     switch(syscall_code){
 
         case CREATEPROCESS:  //this call creates a new process
+            klog_print("createprocess start");
             ACQUIRE_LOCK(&global_lock); //acquire the lock to avoid race conditions
             pcb_t* newPCB = allocPcb(); //allocate a new PCB
             if(newPCB== NULL){  //if the PCB is NULL, the allocation failed for lack of resources
@@ -107,6 +113,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case TERMPROCESS:
+            klog_print("termprocess start");
             ACQUIRE_LOCK(&global_lock); //this call terminates the current process
             int pid = state->reg_a1;  //get the pid of the process to be terminated
             pcb_t *tbt = NULL;  //initialize the pointer to the process to be terminated
@@ -147,6 +154,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case PASSEREN:
+            klog_print("passeren start");
             ACQUIRE_LOCK(&global_lock);
             int *semAdd1 = state->reg_a1;  //get the semaphore address
             (*semAdd1)--;  //decrement the semaphore value
@@ -165,6 +173,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case VERHOGEN:
+            klog_print("verhogen");
             ACQUIRE_LOCK(&global_lock);
             int *semAdd2 = state->reg_a1;  //get the semaphore address
             (*semAdd2)++;  //increment the semaphore value
@@ -178,6 +187,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case DOIO:
+            klog_print("doio start");
             ACQUIRE_LOCK(&global_lock);
             int *commandAddress = state->reg_a1;  //get the command address
             int commandValue = state->reg_a2;  //get the command value
@@ -217,6 +227,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case GETTIME:
+            klog_print("gettime start");
             ACQUIRE_LOCK(&global_lock);
             pcb_t *cur = current_process[getPRID()];  //get the current process
             state->reg_a0 = cur->p_time;  //return the time of the current process
@@ -229,6 +240,7 @@ static void syscallHandler(state_t* state){
             //TODO aspetto implementazione dello pseudoclock in interrupts.c 
 
         case GETSUPPORTPTR:
+            klog_print("getsupportptr start");
             ACQUIRE_LOCK(&global_lock);
             pcb_t *current1 = current_process[getPRID()];  //get the current process
             state->reg_a0 = (unsigned int)current1->p_supportStruct;  //return the support struct of the current process
