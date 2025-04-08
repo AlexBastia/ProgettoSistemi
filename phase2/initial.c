@@ -10,6 +10,13 @@
 
 extern void test();
 
+/* Declaration of global variables */
+int process_count;
+struct list_head ready_queue;
+pcb_PTR current_process[NCPU];
+semd_t device_semaphores[SEMDEVLEN];
+volatile unsigned int global_lock;
+
 int main() {
   /* Populate Pass Up Vector */
   for (int i = 0; i < NCPU; i++) {
