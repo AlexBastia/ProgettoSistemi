@@ -1,6 +1,5 @@
 #include "headers/initial.h"
 
-#include <stdint.h>
 #include <uriscv/arch.h>
 #include <uriscv/const.h>
 #include <uriscv/types.h>
@@ -68,7 +67,7 @@ int main() {
        line++) {  // For each Interrupt Line
     for (int dev = 0; dev < N_DEV_PER_IL;
          dev++) {  // For each Device in Interrupt Line
-      uint32_t *irt_entry = (uint32_t *)IRT_ENTRY(line, dev);
+      int *irt_entry = (int *)IRT_ENTRY(line, dev);
       *irt_entry |= (1U << IRT_ENTRY_POLICY_BIT);  // Set RP bit to 1
       for (int cpu_id = 0; cpu_id < NCPU; cpu_id++)
         *irt_entry |= (1U << cpu_id);  // Set bit at index cpu_id (starting from
