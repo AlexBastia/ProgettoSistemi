@@ -1,43 +1,44 @@
 #include "./headers/asl.h"
+
 #include "./headers/pcb.h"
 
 static semd_t semd_table[MAXPROC];
 static struct list_head semdFree_h;
 static struct list_head semd_h;
 
-  /* 
-    Initialize the semdFree list to contain all the elements 
-    of the array static semd_t semdTable[MAXPROC]. 
-    This method will be only called once during data structure initialization.
-  */
-  
+/*
+  Initialize the semdFree list to contain all the elements
+  of the array static semd_t semdTable[MAXPROC].
+  This method will be only called once during data structure initialization.
+*/
+
 void initASL() {
-  // Inizializzazione liste semafori  
+  // Inizializzazione liste semafori
   INIT_LIST_HEAD(&semdFree_h);
   INIT_LIST_HEAD(&semd_h);
-  
+
   // Spostamento di semafori da semd_tale alla lista di semafori liberi
   for (int i = 0; i < MAXPROC; i++) {
     list_add(&semd_table[i].s_link, &semdFree_h);
   }
 }
 
-
 /*
-  Insert the PCB pointed to by p at the tail of the process queue associated with the semaphore
-  whose key is semAdd and set the semaphore address of p to semaphore with semAdd. If the
-  semaphore is currently not active (i.e. there is no descriptor for it in the ASL), allocate a new
-  descriptor from the semdFree list, insert it in the ASL (at the appropriate position), initialize
-  all of the fields (i.e. set s_key to semAdd, and s_procq to mkEmptyProcQ()), and proceed as 
-  4above. If a new semaphore descriptor needs to be allocated and the semdFree list is empty,
-  return TRUE. In all other cases return FALSE.
+  Insert the PCB pointed to by p at the tail of the process queue associated
+  with the semaphore whose key is semAdd and set the semaphore address of p to
+  semaphore with semAdd. If the semaphore is currently not active (i.e. there is
+  no descriptor for it in the ASL), allocate a new descriptor from the semdFree
+  list, insert it in the ASL (at the appropriate position), initialize all of
+  the fields (i.e. set s_key to semAdd, and s_procq to mkEmptyProcQ()), and
+  proceed as 4above. If a new semaphore descriptor needs to be allocated and the
+  semdFree list is empty, return TRUE. In all other cases return FALSE.
 */
 
 int insertBlocked(int* semAdd, pcb_t* p) {
-
   semd_t* pos = NULL;
 
-  // cerca il semaforo con questo semAdd e aggiunge il processo in coda alla processqueue
+  // cerca il semaforo con questo semAdd e aggiunge il processo in coda alla
+  // processqueue
   list_for_each_entry(pos, &semd_h, s_link) {
     if (pos->s_key == semAdd) {
       list_add_tail(&p->p_list, &pos->s_procq);
@@ -55,7 +56,8 @@ int insertBlocked(int* semAdd, pcb_t* p) {
   semd_t* newSem = container_of(list_next(&semdFree_h), semd_t, s_link);
   newSem->s_key = semAdd;
 
-  // creazione del processo vuoto e aggiunta del semaforo nella process queue con il semAdd dato come parametro
+  // creazione del processo vuoto e aggiunta del semaforo nella process queue
+  // con il semAdd dato come parametro
   mkEmptyProcQ(&newSem->s_procq);
   list_del(&newSem->s_link);
   list_add_tail(&newSem->s_link, &semd_h);
@@ -63,31 +65,31 @@ int insertBlocked(int* semAdd, pcb_t* p) {
   p->p_semAdd = semAdd;
 
   return FALSE;
-}  
+}
 
 /*
-  Search the ASL for a descriptor of this semaphore. If none is found, return NULL; other-wise,
-  remove the first (i.e. head) PCB from the process queue of the found semaphore de-
-  scriptor and return a pointer to it. If the process queue for this semaphore becomes empty
-  (emptyProcQ(s_procq) is TRUE), remove the semaphore descriptor from the ASL and return
-  it to the semdFree list
+  Search the ASL for a descriptor of this semaphore. If none is found, return
+  NULL; other-wise, remove the first (i.e. head) PCB from the process queue of
+  the found semaphore de- scriptor and return a pointer to it. If the process
+  queue for this semaphore becomes empty (emptyProcQ(s_procq) is TRUE), remove
+  the semaphore descriptor from the ASL and return it to the semdFree list
 */
 
 pcb_t* removeBlocked(int* semAdd) {
   semd_t* pos;
   list_for_each_entry(pos, &semd_h, s_link) {
     // Se trova il semaforo nella lista dei semafori attivi
-    if (pos->s_key == semAdd) { 
+    if (pos->s_key == semAdd) {
       pcb_t* p = removeProcQ(&pos->s_procq);
 
       // se la coda dei processi del semaforo pos è vuota
-      if (emptyProcQ(&pos->s_procq)) { 
-
-        // si rimuove il semaforo dalla ASL e lo si inserisce nella coda dei semafori liberi  
+      if (emptyProcQ(&pos->s_procq)) {
+        // si rimuove il semaforo dalla ASL e lo si inserisce nella coda dei
+        // semafori liberi
         list_del(&pos->s_link);
         list_add(&pos->s_link, &semdFree_h);
       };
-      return p; 
+      return p;
     };
   };
   return NULL;
@@ -118,11 +120,11 @@ pcb_t* outBlocked(pcb_t* p) {
   return p_out;
 }
 
-pcb_t* headBlocked(int* semAdd) { 
-  semd_t* pos; // semaforo
-  list_for_each_entry(pos, &semd_h, s_link) {  //scorro la lista dei semafori
-    if (semAdd == pos->s_key) { //se il semaforo è quello cercato
-      return headProcQ(&pos->s_procq); //ritorno il primo processo in coda
+pcb_t* headBlocked(int* semAdd) {
+  semd_t* pos;                                 // semaforo
+  list_for_each_entry(pos, &semd_h, s_link) {  // scorro la lista dei semafori
+    if (semAdd == pos->s_key) {         // se il semaforo è quello cercato
+      return headProcQ(&pos->s_procq);  // ritorno il primo processo in coda
     }
   }
   return NULL;
