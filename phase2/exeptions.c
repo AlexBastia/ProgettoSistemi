@@ -187,7 +187,7 @@ static void syscallHandler(state_t* state){
             break;
 
         case DOIO:
-            klog_print("doio start");
+            klog_print("doio start \n");
             ACQUIRE_LOCK(&global_lock);
             int *commandAddress = state->reg_a1;  //get the command address
             int commandValue = state->reg_a2;  //get the command value
@@ -197,32 +197,36 @@ static void syscallHandler(state_t* state){
                 RELEASE_LOCK(&global_lock);
                 break;
             }
+            klog_print("commandAddress ok \n");
 
             pcb_t *current = current_process[getPRID()];  //get the current process
             current-> p_s = *state;  //save the state of the current process
-
+            klog_print("current ok \n");
             int devIndex = 0; //findDeviceIndex(commandAddress);  //get the device index from the command address
             if(devIndex<0){
                 state->reg_a0 = -1;  //if the device index is not valid, return -1
                 RELEASE_LOCK(&global_lock);
                 break;
             }
-
+            klog_print("devindex found \n");
             int *devSemaphore = &device_semaphores[devIndex]; //get the semaphore of the device
-            
+            klog_print("1 \n");
             *commandAddress = commandValue;
-
-            (*devSemaphore)--;  //decrement the semaphore value to block the process until the i/o operation is completed
+            klog_print("2 \n");
+            (*devSemaphore)--; 
+            klog_print("3 \n"); //decrement the semaphore value to block the process until the i/o operation is completed
             if(*devSemaphore < 0){  //if the semaphore value is negative, its value can't be decreased
                 insertBlocked(devSemaphore, current);  //insert the current process in the blocked list of the semaphore
 
                 state->pc_epc += 4;  //increment the program counter
                 RELEASE_LOCK(&global_lock);
+                klog_print("4 \n");
                 Scheduler();
                 return;
             }
-            
+            klog_print("5");
             state->reg_a0 = *commandAddress;  //return the value of the command address
+            klog_print("6");
             RELEASE_LOCK(&global_lock);
             break;
 
