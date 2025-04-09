@@ -16,7 +16,7 @@ extern void test();
 int process_count;
 struct list_head ready_queue;
 pcb_PTR current_process[NCPU];
-semd_t device_semaphores[SEMDEVLEN];
+int device_semaphores[SEMDEVLEN];
 volatile unsigned int global_lock = 1; /* 0 or 1 */
 
 int main() {
@@ -40,7 +40,6 @@ int main() {
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
 
-  int device_semaphores[SEMDEVLEN];
   for (int i = 0; i < SEMDEVLEN; i++) {
     device_semaphores[i] = 0;
   }

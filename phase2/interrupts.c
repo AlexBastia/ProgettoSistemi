@@ -3,10 +3,15 @@
 
 /////  GET(x) = x & 0111 1100  shiftato a destra di 2. quindi sono i bit dal terzo al settimo partendo da destra, spostati a destra di 2
 /// torna quindi un numero da 0 a 31. 
+int CAUSE_GET_EXCCODE(int cause){
+    return (cause & CAUSE_EXCCODE_MASK) >> 2;
+}
+
 void interruptHandler(state_t* current_state){  
     ACQUIRE_LOCK(&global_lock);
     int int_code = CAUSE_GET_EXCCODE(getCAUSE());
     int intlineNo = -1;
+    RELEASE_LOCK(&global_lock);
     switch (int_code) {
         case IL_CPUTIMER:   intlineNo = 1; pltHandler(); break;
         case IL_TIMER:      intlineNo = 2; timerHandler(); break;
@@ -15,9 +20,8 @@ void interruptHandler(state_t* current_state){
         case IL_ETHERNET:   intlineNo = 5; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
         case IL_PRINTER:    intlineNo = 6; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
         case IL_TERMINAL:   intlineNo = 7; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
-        default: ;
+        default: break;
     }
-    RELEASE_LOCK(&global_lock);
 }
 
 void pltHandler(){
@@ -48,6 +52,3 @@ void intHandler(int n){
 
 void timerHandler(){}
 
-int CAUSE_GET_EXCCODE(int cause){
-    return (cause & CAUSE_EXCCODE_MASK) >> 2;
-}

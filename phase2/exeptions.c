@@ -69,6 +69,7 @@ static void terminateSubtree(pcb_t* process) {
 
 int findDeviceIndex(unsigned int *commandAddress) {
     int i= ((int)commandAddress - 0x10000058)/0x10; //renzo davoli
+    return i;
 }
 
 static void syscallHandler(state_t* state) {
@@ -173,9 +174,9 @@ static void syscallHandler(state_t* state) {
     case PASSEREN:
       klog_print("passeren start");
       ACQUIRE_LOCK(&global_lock);
-      semd_t* semAdd1 = (semd_t*)state->reg_a1;  // get the semaphore address
-      (*semAdd1->s_key)--;                        // decrement the semaphore value
-      if (*semAdd1->s_key < 0) {  // if the semaphore address is negative, its value can't be decreased
+      int* semAdd1 = (int*)state->reg_a1;  // get the semaphore address
+      (*semAdd1)--;                        // decrement the semaphore value
+      if (*semAdd1 < 0) {  // if the semaphore address is negative, its value can't be decreased
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(semAdd1, current);  // insert the current process in the blocked list of the semaphore
 
@@ -194,10 +195,11 @@ static void syscallHandler(state_t* state) {
     case VERHOGEN:
       klog_print("verhogen");
       ACQUIRE_LOCK(&global_lock);
-      semd_t* semAdd2 = (semd_t*)state->reg_a1;  // get the semaphore address
-      (*semAdd2->s_key)++;
+      int* semAdd2 = (int*)state->reg_a1;  // get the semaphore address
+
+      (*semAdd2)++;
       klog_print("verhogen 2");
-      if(*semAdd2->s_key>=1){
+      if(*semAdd2>1){
         klog_print("verhogen 3");
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(semAdd2, current);  // insert the current process in the blocked list of the semaphore
@@ -205,12 +207,10 @@ static void syscallHandler(state_t* state) {
         current->p_s = *state;  // save the state of the current process
 
         RELEASE_LOCK(&global_lock);
-        klog_print("verhogen scheduler");
         Scheduler();
-        klog_print("verhogen scheduler end");
-        break;
-      }
-      if (*semAdd2->s_key <= 0) {  // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+
+        return;
+      }else if (*semAdd2<=0){  // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
         pcb_t* unblocked =
             removeBlocked(semAdd2);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
@@ -234,7 +234,6 @@ static void syscallHandler(state_t* state) {
 
       pcb_t* current = current_process[getPRID()];  // get the current process
       current->p_s = *state;  // save the state of the current process
-      klog_print("current ok \n");
       int devIndex = findDeviceIndex(commandAddress);  //get the device
                          // index from the command address
       if (devIndex < 0) {
@@ -242,15 +241,14 @@ static void syscallHandler(state_t* state) {
         RELEASE_LOCK(&global_lock);
         break;
       }
-      klog_print("devindex found \n");
-      semd_t* devSemaphore = &device_semaphores[devIndex];  // get the semaphore of the device
-      klog_print("1 \n");
+      int* devSemaphore = &device_semaphores[devIndex];  // get the semaphore of the device
+
       *commandAddress = commandValue;
-      klog_print("2 \n");
-      (*devSemaphore->s_key)--; 
-      klog_print("3 \n"); // decrement the semaphore value to block the process
+
+      (*devSemaphore)--; 
+ // decrement the semaphore value to block the process
                           // until the i/o operation is completed
-      if (*devSemaphore->s_key < 0) {  // if the semaphore value is negative, its value can't be decreased
+      if (*devSemaphore < 0) {  // if the semaphore value is negative, its value can't be decreased
         insertBlocked(devSemaphore, current);  // insert the current process in the blocked // list of the sema
         state->pc_epc += 4;  // increment the program counter
         RELEASE_LOCK(&global_lock);
@@ -260,7 +258,6 @@ static void syscallHandler(state_t* state) {
       }
       klog_print("5");
       state->reg_a0 = *commandAddress;  // return the value of the command address
-      klog_print("6");
       RELEASE_LOCK(&global_lock);
       break;
 
