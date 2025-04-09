@@ -1,4 +1,4 @@
-#include "../klog.c"
+
 #include "headers/exceptions.h"
 #include "headers/initial.h"
 #include "headers/interrupts.h"
@@ -67,15 +67,9 @@ static void terminateSubtree(pcb_t* process) {
   }
 }
 
-/*int findDeviceIndex(unsigned int *commandAddress) {
-    int i;
-    for (i = 0; i < SEMDEVLEN; i++) {
-        if (INDIRIZZIREGDISPOSITIVI[i] == commandAddress) {
-            return i;  // Restituisce l'indice del semaforo
-        }
-    }
-    return -1;  // Indirizzo non valido
-}*/
+int findDeviceIndex(unsigned int *commandAddress) {
+    int i= ((int)commandAddress - 0x10000058)/0x10; //renzo davoli
+}
 
 static void syscallHandler(state_t* state) {
   klog_print("inizio gestione syscall");
@@ -179,20 +173,20 @@ static void syscallHandler(state_t* state) {
     case PASSEREN:
       klog_print("passeren start");
       ACQUIRE_LOCK(&global_lock);
-      int* semAdd1 = (int*)state->reg_a1;  // get the semaphore address
-      (*semAdd1)--;                        // decrement the semaphore value
-      if (*semAdd1 < 0) {  // if the semaphore address is negative, its value
-                           // can't be decreased
+      semd_t* semAdd1 = (semd_t*)state->reg_a1;  // get the semaphore address
+      (*semAdd1->s_key)--;                        // decrement the semaphore value
+      if (*semAdd1->s_key < 0) {  // if the semaphore address is negative, its value can't be decreased
         pcb_t* current = current_process[getPRID()];  // get the current process
-        insertBlocked(semAdd1, current);  // insert the current process in the
-                                          // blocked list of the semaphore
+        insertBlocked(semAdd1, current);  // insert the current process in the blocked list of the semaphore
 
         state->pc_epc += 4;     // increment the program counter
         current->p_s = *state;  // save the state of the current process
 
         RELEASE_LOCK(&global_lock);
+        klog_print("passeren scheduler");
         Scheduler();
-        return;
+        klog_print("passeren scheduler end");
+        break;
       }
       RELEASE_LOCK(&global_lock);
       break;
@@ -200,13 +194,25 @@ static void syscallHandler(state_t* state) {
     case VERHOGEN:
       klog_print("verhogen");
       ACQUIRE_LOCK(&global_lock);
-      int* semAdd2 = (int*)state->reg_a1;  // get the semaphore address
-      (*semAdd2)++;                        // increment the semaphore value
-      if (*semAdd2 <= 0) {  // if the semaphore value is less than or equal to
-                            // 0, there are processes waiting on the semaphore
+      semd_t* semAdd2 = (semd_t*)state->reg_a1;  // get the semaphore address
+      (*semAdd2->s_key)++;
+      klog_print("verhogen 2");
+      if(*semAdd2->s_key>=1){
+        klog_print("verhogen 3");
+        pcb_t* current = current_process[getPRID()];  // get the current process
+        insertBlocked(semAdd2, current);  // insert the current process in the blocked list of the semaphore
+        state->pc_epc += 4;     // increment the program counter
+        current->p_s = *state;  // save the state of the current process
+
+        RELEASE_LOCK(&global_lock);
+        klog_print("verhogen scheduler");
+        Scheduler();
+        klog_print("verhogen scheduler end");
+        break;
+      }
+      if (*semAdd2->s_key <= 0) {  // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
         pcb_t* unblocked =
-            removeBlocked(semAdd2);  // remove the first process from the
-                                     // blocked list of the semaphore
+            removeBlocked(semAdd2);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
         }
@@ -228,39 +234,33 @@ static void syscallHandler(state_t* state) {
 
       pcb_t* current = current_process[getPRID()];  // get the current process
       current->p_s = *state;  // save the state of the current process
-            klog_print("current ok \n");
-      int devIndex = 0;  // findDeviceIndex(commandAddress);  //get the device
+      klog_print("current ok \n");
+      int devIndex = findDeviceIndex(commandAddress);  //get the device
                          // index from the command address
       if (devIndex < 0) {
         state->reg_a0 = -1;  // if the device index is not valid, return -1
         RELEASE_LOCK(&global_lock);
         break;
       }
-            klog_print("devindex found \n");
-      int* devSemaphore =
-          &device_semaphores[devIndex];  // get the semaphore of the device
-klog_print("1 \n");
+      klog_print("devindex found \n");
+      semd_t* devSemaphore = &device_semaphores[devIndex];  // get the semaphore of the device
+      klog_print("1 \n");
       *commandAddress = commandValue;
-            klog_print("2 \n");
-      (*devSemaphore)--; 
-            klog_print("3 \n"); // decrement the semaphore value to block the process
+      klog_print("2 \n");
+      (*devSemaphore->s_key)--; 
+      klog_print("3 \n"); // decrement the semaphore value to block the process
                           // until the i/o operation is completed
-      if (*devSemaphore < 0) {  // if the semaphore value is negative, its value
-                                // can't be decreased
-        insertBlocked(devSemaphore,
-                      current);  // insert the current process in the blocked
-                                 // list of the semaphore
-
+      if (*devSemaphore->s_key < 0) {  // if the semaphore value is negative, its value can't be decreased
+        insertBlocked(devSemaphore, current);  // insert the current process in the blocked // list of the sema
         state->pc_epc += 4;  // increment the program counter
         RELEASE_LOCK(&global_lock);
-                klog_print("4 \n");
+        klog_print("4 \n");
         Scheduler();
         return;
       }
-klog_print("5");
-      state->reg_a0 =
-          *commandAddress;  // return the value of the command address
-            klog_print("6");
+      klog_print("5");
+      state->reg_a0 = *commandAddress;  // return the value of the command address
+      klog_print("6");
       RELEASE_LOCK(&global_lock);
       break;
 
@@ -324,12 +324,14 @@ void programTrapHandler(state_t* state) {
 }
 
 void passUpordie(int exception) {
+  ACQUIRE_LOCK(&global_lock);
   int cpu_id = getPRID();  // get the cpu id of the current process
   state_t* current_state = (GET_EXCEPTION_STATE_PTR(
       cpu_id));  // get the current state of the process
 
   if (current_process[cpu_id] ==
       NULL) {  // if the current process is NULL, there is no process to pass up
+    RELEASE_LOCK(&global_lock);
     HALT();
   }
 
@@ -338,11 +340,13 @@ void passUpordie(int exception) {
 
   if (current->p_parent ==
       NULL) {  // if the current process has no parent, terminate it
+    RELEASE_LOCK (&global_lock);
     HALT();
   }
 
   current->p_s.pc_epc += 4;        // increment the program counter
   current->p_s.cause = exception;  // set the cause of the exception
-
+  
   LDST(&current->p_s);  // load the state of the current process
+  RELEASE_LOCK(&global_lock);
 }
