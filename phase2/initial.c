@@ -4,11 +4,11 @@
 #include <uriscv/const.h>
 #include <uriscv/types.h>
 
+#include "../klog.c"
 #include "../phase1/headers/asl.h"
 #include "../phase1/headers/pcb.h"
-#include "headers/scheduler.h"
 #include "headers/exceptions.h"
-#include "../klog.c"
+#include "headers/scheduler.h"
 
 extern void test();
 
@@ -18,7 +18,6 @@ struct list_head ready_queue;
 pcb_PTR current_process[NCPU];
 semd_t device_semaphores[SEMDEVLEN];
 volatile unsigned int global_lock = 1; /* 0 or 1 */
-
 
 int main() {
   /* Populate Pass Up Vector */
@@ -100,5 +99,4 @@ int main() {
   klog_print("finito inital.c");
   /* Call Scheduler */
   Scheduler();
-
 }
