@@ -40,11 +40,10 @@ int main() {
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
 
-  int sem_init_key = 0;
-
+  int sem_init_keys[SEMDEVLEN] = {0};
   for (int i = 0; i < SEMDEVLEN; i++)
     device_semaphores[i].s_key =
-        &sem_init_key;  // initialize all device semaphores to 0
+        &sem_init_keys[i];  // initialize all device semaphores to 0
 
   /* Load Interval Timer */
   LDIT(PSECOND);
