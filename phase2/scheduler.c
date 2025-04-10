@@ -47,7 +47,7 @@ void Scheduler(){
         current_process[getPRID()] = next;
         setTIMER(TIMESLICE);
         RELEASE_LOCK(&global_lock);
-        LDST(&next->p_s); // context switch al nuovo processo 
+        LDST(&(next->p_s)); // context switch al nuovo processo 
 
     }
     
