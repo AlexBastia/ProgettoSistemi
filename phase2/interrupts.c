@@ -1,54 +1,91 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
-
-/////  GET(x) = x & 0111 1100  shiftato a destra di 2. quindi sono i bit dal terzo al settimo partendo da destra, spostati a destra di 2
-/// torna quindi un numero da 0 a 31. 
-int CAUSE_GET_EXCCODE(int cause){
-    return (cause & CAUSE_EXCCODE_MASK) >> 2;
-}
+//TODO:
+//capire dove serve il global lock
+//funzione che sblocca i pcb che aspettano lo pseudoclock (line 56)
+//capire come leggere i registri del terminale (line 68)
+//chiamare correttamente VERHOGEN (line 80)
 
 void interruptHandler(state_t* current_state){  
     ACQUIRE_LOCK(&global_lock);
     int int_code = CAUSE_GET_EXCCODE(getCAUSE());
-    int intlineNo = -1;
     RELEASE_LOCK(&global_lock);
-    switch (int_code) {
-        case IL_CPUTIMER:   intlineNo = 1; pltHandler(); break;
-        case IL_TIMER:      intlineNo = 2; timerHandler(); break;
-        case IL_DISK:       intlineNo = 3; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
-        case IL_FLASH:      intlineNo = 4; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
-        case IL_ETHERNET:   intlineNo = 5; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
-        case IL_PRINTER:    intlineNo = 6; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
-        case IL_TERMINAL:   intlineNo = 7; intHandler(findInterruptingDevice(intlineNo, int_code)); break;
+    int intlineNo = getintLineNo(int_code);
+    switch (intlineNo){
+        case 1:       pltHandler();               break;
+        case 2:       timerHandler(current_state);break;
+        case 3 ... 7: intHandler(intlineNo);      break;
         default: break;
     }
+}
+int getintLineNo(int int_code){
+    switch(int_code){
+        case IL_CPUTIMER: return 1;
+        case IL_TIMER:    return 2;
+        case IL_DISK:     return 3;
+        case IL_FLASH:    return 4;
+        case IL_ETHERNET: return 5;
+        case IL_PRINTER:  return 6;
+        case IL_TERMINAL: return 7;
+        default: return -1;
+    }
+}
+int getdevNo(int intlineNo){
+    unsigned int bitmapValue = *((unsigned int*)(INTERRUPT_BITMAP_ADDRESS + (intlineNo - 3) * 4)); //va alla parola giusta della bitmap
+    if (bitmapValue & DEV0ON) return 0;
+    if (bitmapValue & DEV1ON) return 1;
+    if (bitmapValue & DEV2ON) return 2;
+    if (bitmapValue & DEV3ON) return 3;
+    if (bitmapValue & DEV4ON) return 4;
+    if (bitmapValue & DEV5ON) return 5;
+    if (bitmapValue & DEV6ON) return 6;
+    if (bitmapValue & DEV7ON) return 7;
+    return -1;
 }
 
 void pltHandler(){
     setTIMER(TIMESLICE);
+    ACQUIRE_LOCK(&global_lock);
     SAVE_STATE(getPRID());
-    insertProcQ(ready_queue, current_process[getPRID()]); //Place the Current Process on the Ready Queue; transitioning the Current Process from the “running” state to the “ready” state
-
+    insertProcQ(&ready_queue, current_process[getPRID()]); 
+    RELEASE_LOCK(&global_lock);
     Scheduler();
 }
-static int findInterruptingDevice(int int_line, int device_no){
-    unsigned int bitmap;
 
-    for(int line = MIN_NI_line; line<=MAX_NI_line; line++){
-        bitmap = *((unsigned int *)(INTERRUPT_BITMAP_ADDRESS + (line - 3) * 4));  // Reads the interrupt bitmap
-
-        for (int dev = 0; dev < 8; dev++) {  //up to 8 devices per line
-            if (bitmap & (1 << dev)) {  //if the bit is set to 1 the device caused the interrupt
-                int_line = line;
-                device_no = dev;
-                return device_no;
-            }
-        }
+void timerHandler(state_t* current_state){
+    LDIT(PSECOND);
+    ACQUIRE_LOCK(&global_lock);
+    UNBLOCKALLWAITINGCLOCKPCBS();  /////!!!!!!!!!!!!!!da fare
+    pcb_PTR curr = current_process[getPRID()];
+    if(curr!=NULL){
+        LDST(current_state);
     }
+    RELEASE_LOCK(&global_lock);
+    Scheduler();
 }
-void intHandler(int n){
 
+void intHandler(int intlineNo){
+    int devNo = getdevNo(intlineNo);
+    unsigned int devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10); //punto 1
+    //come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
+    if (intlineNo ==7) {
+        int TERMINALWRITEINTERRUPT = 0; //placeholder
+        if(TERMINALWRITEINTERRUPT){ devAddrBase += 0x8;}
+    }
+    unsigned int status = *(unsigned int*)devAddrBase; //punto 2
+    unsigned int *command = devAddrBase + 0x4;
+    *command = ACK; //punto 3
+    int deviceID = (devAddrBase - START_DEVREG)/ 0x10;
+    int* devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
+    V(devSemaphore);//punto 4, V non so come e` implementata
+    pcb_PTR pcb = removeBlocked(devSemaphore);
+    if(pcb!=NULL){
+        pcb->p_s.reg_a0 = status;
+        insertProcQ(&ready_queue, pcb);
+    } 
+    if(current_process[getPRID()]!=NULL){ 
+        LDST(status);
+    } else {
+        Scheduler();
+        }
 }
-
-void timerHandler(){}
-

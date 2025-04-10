@@ -1,6 +1,11 @@
 #include <uriscv/liburiscv.h>
-#include "initial.h"
 #include <uriscv/cpu.h>
+#include <uriscv/types.h>
+#include "initial.h"
+#include "exceptions.h"
+#include "scheduler.h"
+#include "../../phase1/headers/pcb.h"
+#include "../../phase1/headers/asl.h"
 
 #define MIN_NI_line 3 //minimum number of non timer interrupt lines
 #define MAX_NI_line 7 //maximum number of non timer interrupt lines
@@ -11,10 +16,8 @@ Manage the interrupt handling, calling the appropriate handler based on the inte
 @param cause: the cause of the interrupt
 */
 void interruptHandler(state_t* current_state);
-
-/*
-Find the device that caused the interrupt
-@param int_line: the interrupt line that caused the interrupt
-@param device_no: the device that caused the interrupt
-*/
-static int findInterruptingDevice(int int_line, int device_no);
+int getintLineNo(int int_code);
+int getdevNo(int intlineNo);
+void pltHandler();
+void timerHandler(state_t* current_state);
+void intHandler(int intlineNo);
