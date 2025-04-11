@@ -1,18 +1,12 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
-
-#define CAUSE_EXCCODE_BIT 2
-#define CAUSE_EXCCODE_MASK1 0x0000007C
-#define CAUSE_GET_EXCCODE(x) (((x) &CAUSE_EXCCODE_MASK1) >> CAUSE_EXCCODE_BIT)
 //TODO:
 //capire dove serve il global lock
-//funzione che sblocca i pcb che aspettano lo pseudoclock (line 56)  FATTO
 //capire come leggere i registri del terminale (line 68)
-//chiamare correttamente VERHOGEN   FATTO(line 80)
 
 void interruptHandler(state_t* current_state){  
     ACQUIRE_LOCK(&global_lock);
-    int int_code = CAUSE_GET_EXCCODE(getCAUSE());
+    unsigned int int_code =  getCAUSE() & CAUSE_EXCCODE_MASK;
     RELEASE_LOCK(&global_lock);
     int intlineNo = getintLineNo(int_code);
     switch (intlineNo){
@@ -66,7 +60,7 @@ void UNBLOCKALLWAITINGCLOCKPCBS(){
 void timerHandler(state_t* current_state){
     LDIT(PSECOND);
     ACQUIRE_LOCK(&global_lock);
-    UNBLOCKALLWAITINGCLOCKPCBS();  /////!!!!!!!!!!!!!!da fare
+    UNBLOCKALLWAITINGCLOCKPCBS();
     pcb_PTR curr = current_process[getPRID()];
     if(curr!=NULL){
         LDST(current_state);
