@@ -1,18 +1,15 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
 //TODO:
-//capire dove serve il global lock
-//capire come leggere i registri del terminale (line 68)
+//capire come leggere i registri del terminale (line 73-75)
 
 void interruptHandler(state_t* current_state){  
-    ACQUIRE_LOCK(&global_lock);
     unsigned int int_code =  getCAUSE() & CAUSE_EXCCODE_MASK;
-    RELEASE_LOCK(&global_lock);
     int intlineNo = getintLineNo(int_code);
     switch (intlineNo){
-        case 1:       pltHandler();               break;
-        case 2:       timerHandler(current_state);break;
-        case 3 ... 7: intHandler(intlineNo);      break;
+        case 1:       pltHandler(current_state);           break;
+        case 2:       timerHandler(current_state);         break;
+        case 3 ... 7: intHandler(intlineNo, current_state);break;
         default: break;
     }
 }
@@ -41,10 +38,10 @@ int getdevNo(int intlineNo){
     return -1;
 }
 
-void pltHandler(){
+void pltHandler(state_t* current_state){
     setTIMER(TIMESLICE);
+    current_process[getPRID()]->p_s = *current_state;
     ACQUIRE_LOCK(&global_lock);
-    SAVE_STATE(getPRID());
     insertProcQ(&ready_queue, current_process[getPRID()]); 
     RELEASE_LOCK(&global_lock);
     Scheduler();
@@ -53,24 +50,24 @@ void pltHandler(){
 void UNBLOCKALLWAITINGCLOCKPCBS(){
     pcb_t* pcb = removeBlocked(&device_semaphores[PSEUDOCLOCK]);
     if (pcb != NULL) {
+        ACQUIRE_LOCK(&global_lock);
         insertProcQ(&ready_queue, pcb);
+        RELEASE_LOCK(&global_lock);
     }
 }
 
 void timerHandler(state_t* current_state){
     LDIT(PSECOND);
-    ACQUIRE_LOCK(&global_lock);
     UNBLOCKALLWAITINGCLOCKPCBS();
     pcb_PTR curr = current_process[getPRID()];
     if(curr!=NULL){
         LDST(current_state);
     }
-    RELEASE_LOCK(&global_lock);
     Scheduler();
 }
 
 
-void intHandler(int intlineNo){
+void intHandler(int intlineNo, state_t* current_state){
     int devNo = getdevNo(intlineNo);
     unsigned int devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10); //punto 1
     //come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
@@ -82,15 +79,19 @@ void intHandler(int intlineNo){
     unsigned int *command = devAddrBase + 0x4;
     *command = ACK; //punto 3
     int deviceID = (devAddrBase - START_DEVREG)/ 0x10;
+    ACQUIRE_LOCK(&global_lock);
     int* devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
-    SYSCALL(VERHOGEN, devSemaphore, 0, 0);//punto 4, V non so come e` implementata
+    RELEASE_LOCK(&global_lock);
+    SYSCALL(VERHOGEN, devSemaphore, 0, 0);//punto 4
     pcb_PTR pcb = removeBlocked(devSemaphore);
     if(pcb!=NULL){
-        pcb->p_s.reg_a0 = status;
+        pcb->p_s.reg_a0 = status;//punto 5
+        ACQUIRE_LOCK(&global_lock);
         insertProcQ(&ready_queue, pcb);
+        RELEASE_LOCK(&global_lock);
     } 
     if(current_process[getPRID()]!=NULL){ 
-        LDST(status);
+        LDST(current_state);
     } else {
         Scheduler();
         }
