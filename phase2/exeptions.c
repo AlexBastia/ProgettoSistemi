@@ -168,7 +168,7 @@ static void syscallHandler(state_t* state) {
       outProcQ(&ready_queue, tbt);
       process_count--;
       freePcb(tbt);  // free the PCB
-
+      current_process[getPRID()]= NULL; // set the current process to NULL
       Scheduler();  // call the scheduler to select the next process
       break;
 

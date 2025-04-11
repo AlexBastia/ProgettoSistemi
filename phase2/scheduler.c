@@ -31,9 +31,8 @@ void Scheduler(){
             klog_print("Scheduler set status");
             setMIE(MIE_ALL & ~MIE_MTIE_MASK);
             klog_print("Scheduler set mie");
-            setTIMER((unsigned int)5000);
+            setTIMER(TIMESLICE);
             klog_print("Scheduler set timer");
-
 
 
             klog_print("Scheduler wait");
