@@ -36,6 +36,8 @@ void Scheduler(){
 
 
             klog_print("Scheduler wait");
+            *((memaddr*)TPR) = 1; 
+            
             WAIT(); // attesa di un interrupt
 
             // see Dott. Rovelli’s thesis for more details.
@@ -45,6 +47,7 @@ void Scheduler(){
         pcb_t* next = removeProcQ(&ready_queue); // TODO: capire come implementare la readyQueue
         current_process[getPRID()] = next;
         setTIMER(TIMESLICE);
+        *((memaddr*)TPR) = 0; 
         RELEASE_LOCK(&global_lock);
         LDST(&(next->p_s)); // context switch al nuovo processo 
 

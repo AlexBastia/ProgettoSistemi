@@ -40,8 +40,7 @@ int main() {
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
 
-  //facciamo che device_semaphores[49] è quello dello pseudoclock
-  
+  //facciamo che device_semaphores[48] è quello dello pseudoclock
   for (int i = 0; i < SEMDEVLEN; i++) {
     device_semaphores[i] = 0;
   }
@@ -56,7 +55,7 @@ int main() {
   // Enable interrupts and kernel mode
   pcb->p_s.mie = MIE_ALL;
   pcb->p_s.status = MSTATUS_MIE_MASK | MSTATUS_MPP_M;
-
+  klog_print("set status");
   // Set Process Tree fields to NULL
   pcb->p_parent = NULL;
   INIT_LIST_HEAD(&pcb->p_sib); /* TODO: can't set p_sib and p_child to NULL, do
@@ -71,7 +70,7 @@ int main() {
   list_add_tail(&ready_queue, &pcb->p_list); /* TODO: aggiunto in coda per
                                                 evitare starvation, va bene? */
   process_count++;
-
+   klog_print("set process count");
   /*IRT*/
   for (int line = 0; line < N_INTERRUPT_LINES;
        line++) {  // For each Interrupt Line
@@ -84,17 +83,18 @@ int main() {
                                        // least significant) to 1 for each CPU
     }
   }
-
+  klog_print("set irt");
   /* Set State for other CPUs */
   for (int cpu_id = 1; cpu_id < NCPU; cpu_id++) {
-    state_t *processor_state = (state_t *)BIOSDATAPAGE + (cpu_id * 0x94);
+    state_t *processor_state = (state_t*)((memaddr)BIOSDATAPAGE + cpu_id * sizeof(state_t));
     processor_state->status = MSTATUS_MPP_M;
     processor_state->pc_epc = (memaddr)Scheduler;
-    processor_state->reg_sp = 0x20020000 + (cpu_id * PAGESIZE);
+    processor_state->reg_sp =  0x20020000 + (cpu_id * PAGESIZE);;
     processor_state->entry_hi = 0;
     processor_state->cause = 0;
     processor_state->mie = 0;
   }
+
   /* TODO: come mai non lo devo fare per il primo CPU? */
   klog_print("finito inital.c");
   /* Call Scheduler */

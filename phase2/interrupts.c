@@ -7,9 +7,15 @@ void interruptHandler(state_t* current_state){
     unsigned int int_code =  getCAUSE() & CAUSE_EXCCODE_MASK;
     int intlineNo = getintLineNo(int_code);
     switch (intlineNo){
-        case 1:       pltHandler(current_state);           break;
-        case 2:       timerHandler(current_state);         break;
-        case 3 ... 7: intHandler(intlineNo, current_state);break;
+        case 1:       
+        klog_print("int line cputimer");
+        pltHandler(current_state);           break;
+        case 2:       
+        klog_print("int line timer");
+        timerHandler(current_state);         break;
+        case 3 ... 7:       
+        klog_print("int line non timer");
+        intHandler(intlineNo, current_state);break;
         default: break;
     }
 }
@@ -71,10 +77,21 @@ void intHandler(int intlineNo, state_t* current_state){
     int devNo = getdevNo(intlineNo);
     unsigned int devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10); //punto 1
     //come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
-    if (intlineNo ==7) {
-        int TERMINALWRITEINTERRUPT = 0; //placeholder
-        if(TERMINALWRITEINTERRUPT){ devAddrBase += 0x8;}
+    unsigned int status1 = *(unsigned int*)devAddrBase;
+    unsigned int *command1 = NULL;
+    int is_transmitter = 0;
+    klog_print("status1: %x", status1);
+        // Bit 0: Interrupt Receive, Bit 1: Interrupt Transmit
+    if (status1 & 0x1) {  // Interrupt di Ricezione
+            command1 = (unsigned int*)(devAddrBase + 0x4);  // Command register receiver
+        } 
+        else if (status1 & 0x2) {  // Interrupt di Trasmissione
+            command1 = (unsigned int*)(devAddrBase + 0x8);  // Command register transmitter
+            is_transmitter = 1;
+        } else {
+        command1 = (unsigned int*)(devAddrBase + 0x4);  // Altri dispositivi
     }
+    klog_print("command1: %x", command1);
     unsigned int status = *(unsigned int*)devAddrBase; //punto 2
     unsigned int *command = devAddrBase + 0x4;
     *command = ACK; //punto 3
@@ -82,6 +99,7 @@ void intHandler(int intlineNo, state_t* current_state){
     ACQUIRE_LOCK(&global_lock);
     int* devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
     RELEASE_LOCK(&global_lock);
+    klog_print("verhogen dopo", devSemaphore);
     SYSCALL(VERHOGEN, devSemaphore, 0, 0);//punto 4
     pcb_PTR pcb = removeBlocked(devSemaphore);
     if(pcb!=NULL){

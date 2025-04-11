@@ -20,4 +20,4 @@ int getintLineNo(int int_code);
 int getdevNo(int intlineNo);
 void pltHandler();
 void timerHandler(state_t* current_state);
-void intHandler(int intlineNo);
+void intHandler(int intlineNo, state_t* current_state);
