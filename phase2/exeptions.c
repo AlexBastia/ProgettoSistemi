@@ -357,7 +357,6 @@ void passUpordie(int exception) {
 
   RELEASE_LOCK(&global_lock);
 
-  // LDST non ritorna: salta direttamente all'handler del livello supporto
   state_t new_state;
   new_state.status = ctx->status;
   new_state.pc_epc = ctx->pc;
