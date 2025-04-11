@@ -25,11 +25,11 @@ int main() {
     passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR + (0x10 * i);
     passupvector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
     passupvector->tlb_refill_stackPtr =
-        (i == 0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
+        (i == 0) ? KERNELSTACK : RAMSTART + (64 * PAGESIZE) + (i * PAGESIZE);
     passupvector->exception_handler = (memaddr)exceptionHandler;
-    passupvector->exception_stackPtr = passupvector->tlb_refill_stackPtr;
+    passupvector->exception_stackPtr = 
+        (i==0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
   }
-
   /* Initialize Level 2 data structures */
   initPcbs();
   initASL();

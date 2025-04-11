@@ -28,7 +28,7 @@ void exceptionHandler() {
       CAUSE_EXCCODE_MASK;  // as specified in phase 2 specs, use the bitwise AND
                            // to get the exception code
 
-  while (CAUSE_IS_INT(
+  while(CAUSE_IS_INT(
       getCAUSE())) {  // cycle to reenter the handler immediately if there are
                       // more than one interrupt pending
     interruptHandler(current_state);  // if the cause is an interrupt, call the
@@ -51,6 +51,8 @@ void exceptionHandler() {
       (cpu_time_end - cpu_time_init);  // update the time of the current process
 
   // SE LE 3 RIGHE QUA SOPRA DANNO PROBLEMI RIVEDERE IMPLEMENTAZIONE
+  current_state->pc_epc += 4; 
+  LDST(current_state);  // load the state of the current process
 }
 
 // this helper function is used to terminate the current process subtree
@@ -146,15 +148,15 @@ static void syscallHandler(state_t* state) {
           }
         }
       }
-
+      RELEASE_LOCK(&global_lock);
       if (tbt == NULL) {
-        RELEASE_LOCK(&global_lock);
         state->reg_a0 =
             -1;  // if the process to be terminated is not found, return -1
         break;
       }
 
       if (!emptyChild(tbt)) {
+      
         terminateSubtree(
             tbt);  // terminate the subtree of the process to be terminated
       }
@@ -167,7 +169,6 @@ static void syscallHandler(state_t* state) {
       process_count--;
       freePcb(tbt);  // free the PCB
 
-      RELEASE_LOCK(&global_lock);
       Scheduler();  // call the scheduler to select the next process
       break;
 
@@ -272,7 +273,7 @@ static void syscallHandler(state_t* state) {
     case CLOCKWAIT:
       ACQUIRE_LOCK(&global_lock);
 
-      // TODO aspetto implementazione dello pseudoclock in interrupts.c
+      
 
     case GETSUPPORTPTR:
       klog_print("getsupportptr start");
@@ -322,28 +323,39 @@ void programTrapHandler(state_t* state) {
 
 void passUpordie(int exception) {
   ACQUIRE_LOCK(&global_lock);
-  int cpu_id = getPRID();  // get the cpu id of the current process
-  state_t* current_state = (GET_EXCEPTION_STATE_PTR(
-      cpu_id));  // get the current state of the process
 
-  if (current_process[cpu_id] ==
-      NULL) {  // if the current process is NULL, there is no process to pass up
-    RELEASE_LOCK(&global_lock);
-    HALT();
+  int cpu_id = getPRID();
+  state_t* exc_state = GET_EXCEPTION_STATE_PTR(cpu_id);
+
+  pcb_t* current = current_process[cpu_id];
+
+  if (current == NULL) {
+      RELEASE_LOCK(&global_lock);
+      PANIC();  // kernel panic: eccezione senza processo
   }
 
-  pcb_t* current = current_process[cpu_id];  // get the current process
-  current->p_s = *current_state;  // save the state of the current process
-
-  if (current->p_parent ==
-      NULL) {  // if the current process has no parent, terminate it
-    RELEASE_LOCK (&global_lock);
-    HALT();
+  // Se il processo non ha supportStruct → termina
+  if (current->p_supportStruct == NULL) {
+      RELEASE_LOCK(&global_lock);
+      SYSCALL(TERMPROCESS, 0, 0, 0);  // termina processo
+      PANIC();  // non dovrebbe tornare
   }
 
-  current->p_s.pc_epc += 4;        // increment the program counter
-  current->p_s.cause = exception;  // set the cause of the exception
-  
-  LDST(&current->p_s);  // load the state of the current process
+  // PASS UP: copia lo stato dell'eccezione
+  support_t* sup = current->p_supportStruct;
+  sup->sup_exceptState[exception] = *exc_state;
+
+  context_t* ctx = &sup->sup_exceptContext[exception];
+
   RELEASE_LOCK(&global_lock);
+
+  // LDST non ritorna: salta direttamente all'handler del livello supporto
+  state_t new_state;
+  new_state.status = ctx->status;
+  new_state.pc_epc = ctx->pc;
+  new_state.gpr[29] = ctx->stackPtr;  // $sp = gpr[29]
+  
+
+  LDST(&new_state);
 }
+

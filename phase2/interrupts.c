@@ -1,10 +1,14 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
+
+#define CAUSE_EXCCODE_BIT 2
+#define CAUSE_EXCCODE_MASK1 0x0000007C
+#define CAUSE_GET_EXCCODE(x) (((x) &CAUSE_EXCCODE_MASK1) >> CAUSE_EXCCODE_BIT)
 //TODO:
 //capire dove serve il global lock
 //funzione che sblocca i pcb che aspettano lo pseudoclock (line 56)
 //capire come leggere i registri del terminale (line 68)
-//chiamare correttamente VERHOGEN (line 80)
+//chiamare correttamente VERHOGEN   FATTO(line 80)
 
 void interruptHandler(state_t* current_state){  
     ACQUIRE_LOCK(&global_lock);
@@ -52,6 +56,8 @@ void pltHandler(){
     Scheduler();
 }
 
+void UNBLOCKALLWAITINGCLOCKPCBS(){}
+
 void timerHandler(state_t* current_state){
     LDIT(PSECOND);
     ACQUIRE_LOCK(&global_lock);
@@ -63,6 +69,7 @@ void timerHandler(state_t* current_state){
     RELEASE_LOCK(&global_lock);
     Scheduler();
 }
+
 
 void intHandler(int intlineNo){
     int devNo = getdevNo(intlineNo);
@@ -77,7 +84,7 @@ void intHandler(int intlineNo){
     *command = ACK; //punto 3
     int deviceID = (devAddrBase - START_DEVREG)/ 0x10;
     int* devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
-    V(devSemaphore);//punto 4, V non so come e` implementata
+    SYSCALL(VERHOGEN, devSemaphore, 0, 0);//punto 4, V non so come e` implementata
     pcb_PTR pcb = removeBlocked(devSemaphore);
     if(pcb!=NULL){
         pcb->p_s.reg_a0 = status;

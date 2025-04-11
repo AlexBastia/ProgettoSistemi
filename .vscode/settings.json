@@ -4,6 +4,7 @@
         "types.h": "c",
         "asl.h": "c",
         "initial.h": "c",
-        "arch.h": "c"
+        "arch.h": "c",
+        "cpu.h": "c"
     }
 }
