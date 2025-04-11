@@ -206,7 +206,7 @@ static void syscallHandler(state_t* state) {
         insertBlocked(semAdd2, current);  // insert the current process in the blocked list of the semaphore
         state->pc_epc += 4;     // increment the program counter
         current->p_s = *state;  // save the state of the current process
-
+        current_process[getPRID()] = NULL;
         RELEASE_LOCK(&global_lock);
         Scheduler();
 
@@ -218,6 +218,7 @@ static void syscallHandler(state_t* state) {
           insertProcQ(&ready_queue, unblocked);
         }
       }
+      state->pc_epc += 4;  // increment the program counter
       RELEASE_LOCK(&global_lock);
       break;
 
@@ -265,15 +266,22 @@ static void syscallHandler(state_t* state) {
     case GETTIME:
       klog_print("gettime start");
       ACQUIRE_LOCK(&global_lock);
-      pcb_t* cur = current_process[getPRID()];  // get the current process
-      state->reg_a0 = cur->p_time;  // return the time of the current process
+      pcb_t* proc = current_process[getPRID()];  // get the current process
+      state->reg_a0 = proc->p_time;  // return the time of the current process
       RELEASE_LOCK(&global_lock);
       break;
 
     case CLOCKWAIT:
       ACQUIRE_LOCK(&global_lock);
+      pcb_t* cur = current_process[getPRID()];  // get the current process
 
-      
+      if(insertBlocked(&device_semaphores[PSEUDOCLOCK], cur) == TRUE){
+        PANIC(); // errore: non c'è memoria per inserirlo nella ASL
+      }
+
+      current_process[getPRID()]= NULL; 
+      Scheduler(); // pass the control to the scheduler
+      break;  
 
     case GETSUPPORTPTR:
       klog_print("getsupportptr start");

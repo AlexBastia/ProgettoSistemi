@@ -3,7 +3,11 @@
 
 #include "../../headers/const.h"
 #include "../../headers/types.h"
+
+
 /* Global Variables */
+
+#define PSEUDOCLOCK 49
 extern int
     process_count; /* number of started, but not yet terminated processes */
 extern struct list_head ready_queue; /* queue of PCBs in 'ready' state */

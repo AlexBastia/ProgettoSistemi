@@ -6,7 +6,7 @@
 #define CAUSE_GET_EXCCODE(x) (((x) &CAUSE_EXCCODE_MASK1) >> CAUSE_EXCCODE_BIT)
 //TODO:
 //capire dove serve il global lock
-//funzione che sblocca i pcb che aspettano lo pseudoclock (line 56)
+//funzione che sblocca i pcb che aspettano lo pseudoclock (line 56)  FATTO
 //capire come leggere i registri del terminale (line 68)
 //chiamare correttamente VERHOGEN   FATTO(line 80)
 
@@ -56,7 +56,12 @@ void pltHandler(){
     Scheduler();
 }
 
-void UNBLOCKALLWAITINGCLOCKPCBS(){}
+void UNBLOCKALLWAITINGCLOCKPCBS(){
+    pcb_t* pcb = removeBlocked(&device_semaphores[PSEUDOCLOCK]);
+    if (pcb != NULL) {
+        insertProcQ(&ready_queue, pcb);
+    }
+}
 
 void timerHandler(state_t* current_state){
     LDIT(PSECOND);
