@@ -102,15 +102,16 @@ void intHandler(int intlineNo, state_t *current_state) {
   int deviceID = findDeviceIndex(devAddrBase);
   ACQUIRE_LOCK(&global_lock);
   int *devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
-  RELEASE_LOCK(&global_lock);
-  SYSCALL(VERHOGEN, (unsigned int)devSemaphore, 0, 0);  // punto 4
-  pcb_PTR pcb = removeBlocked(devSemaphore);
-  if (pcb != NULL) {
-    pcb->p_s.reg_a0 = status;  // punto 5
-    ACQUIRE_LOCK(&global_lock);
-    insertProcQ(&ready_queue, pcb);
-    RELEASE_LOCK(&global_lock);
-  }
+  (*devSemaphore)++;
+      klog_print("verhogen 2");
+      if (*devSemaphore <= 0) {                   // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+        pcb_t* unblocked = removeBlocked(devSemaphore);  // remove the first process from the blocked list of the semaphore
+        if (unblocked != NULL) {
+          insertProcQ(&ready_queue, unblocked);
+        }
+      }
+      current_state->pc_epc += 4;  // increment the program counter
+      RELEASE_LOCK(&global_lock);
   if (current_process[getPRID()] != NULL) {
     LDST(current_state);
   } else {
