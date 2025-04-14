@@ -1,9 +1,8 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
-// TODO: capire come leggere i registri del terminale (line 73-75)
 
 void interruptHandler(state_t *current_state) {
-  unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK;
+  unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK; //trova il device che ha causato l'interrupt
   int intlineNo = getintLineNo(int_code);
   switch (intlineNo) {
     case 1:
@@ -19,6 +18,8 @@ void interruptHandler(state_t *current_state) {
       break;
   }
 }
+
+//trova quale tipo di device ha causato l'interrupt dall'int_code
 int getintLineNo(int int_code) {
   switch (int_code) {
     case IL_CPUTIMER:
@@ -39,6 +40,8 @@ int getintLineNo(int int_code) {
       return -1;
   }
 }
+
+//trova, sapendo il tipo del device interrompente, quale degli 8 device di esso ha causato l'interrupt
 int getdevNo(int intlineNo) {
   unsigned int bitmapValue = *((unsigned int *)(INTERRUPT_BITMAP_ADDRESS + (intlineNo - 3) * 4));  // va alla parola giusta della bitmap
   if (bitmapValue & DEV0ON) return 0;
@@ -52,11 +55,12 @@ int getdevNo(int intlineNo) {
   return -1;
 }
 
+//gestisce gli interrupt da plt
 void pltHandler(state_t *current_state) {
-  setTIMER(TIMESLICE);
-  current_process[getPRID()]->p_s = *current_state;
+  setTIMER(TIMESLICE);   //Acknowledge the PLT interrupt by loading the timer with a new value using setTIMER.
+  current_process[getPRID()]->p_s = *current_state; //Copy the processor state of the current CPU at the time of the exception into the Current Process’s PCB (p_s) of the current CPU
   ACQUIRE_LOCK(&global_lock);
-  insertProcQ(&ready_queue, current_process[getPRID()]);
+  insertProcQ(&ready_queue, current_process[getPRID()]); //Place the Current Process on the Ready Queue;
   RELEASE_LOCK(&global_lock);
   Scheduler();
 }
@@ -70,30 +74,32 @@ void UNBLOCKALLWAITINGCLOCKPCBS() {
   }
 }
 
+//gestisce gli interrupt da pseudoclock
 void timerHandler(state_t *current_state) {
-  LDIT(PSECOND);
-  UNBLOCKALLWAITINGCLOCKPCBS();
+  LDIT(PSECOND); //Acknowledge the interrupt by loading the Interval Timer with a new value: 100 milliseconds
+  UNBLOCKALLWAITINGCLOCKPCBS(); //Unblock all PCBs blocked waiting a Pseudo-clock tick.
   pcb_PTR curr = current_process[getPRID()];
   if (curr != NULL) {
-    LDST(current_state);
+    LDST(current_state); //Return control to the Current Process of the current CPU if exists: perform a LDST on the saved exception state of the current CPU.
   }
+  //it is also possible that there is no Current Process to return control to. This will be the case when the Scheduler executes the WAIT instruction instead of dispatching a process for execution
   Scheduler();
 }
-
 void intHandler(int intlineNo, state_t *current_state) {
   int devNo = getdevNo(intlineNo);
-  memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
+  unsigned int devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
   // come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
   if (intlineNo == 7) {
-    int TERMINALWRITEINTERRUPT = 0;  // placeholder
-    if (TERMINALWRITEINTERRUPT) {
+    unsigned int * writestatusaddress = devAddrBase+0x8;
+    int TERMINALWRITEINTERRUPT = *writestatusaddress;  // si spera che questo funzioni
+    if (TERMINALWRITEINTERRUPT!=0) {
       devAddrBase += 0x8;
     }
   }
   unsigned int status = *(unsigned int *)devAddrBase;  // punto 2
   unsigned int *command = (unsigned int *)devAddrBase + 0x4;
   *command = ACK;  // punto 3
-  int deviceID = (devAddrBase - START_DEVREG) / 0x10;
+  int deviceID = findDeviceIndex(devAddrBase);
   ACQUIRE_LOCK(&global_lock);
   int *devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
   RELEASE_LOCK(&global_lock);
