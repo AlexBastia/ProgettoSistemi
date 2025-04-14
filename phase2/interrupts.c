@@ -83,7 +83,7 @@ void timerHandler(state_t *current_state) {
 
 void intHandler(int intlineNo, state_t *current_state) {
   int devNo = getdevNo(intlineNo);
-  unsigned int devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
+  memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
   // come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
   if (intlineNo == 7) {
     int TERMINALWRITEINTERRUPT = 0;  // placeholder

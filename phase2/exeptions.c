@@ -59,9 +59,18 @@ static void terminateSubtree(pcb_t* process) {
   }
 }
 
-int findDeviceIndex(unsigned int* commandAddress) {
-  int i = ((int)commandAddress - 0x10000058) / 0x10;  // renzo davoli
-  return i;
+// Passato l'indirizzo del device register, restituisce un indice unico per ogni device
+// che identifica il semaforo corrispondente.
+// Distingue i sub-device nel caso dei register dei terminali.
+int findDeviceIndex(memaddr* devRegAddress) {
+  unsigned int offset = (unsigned int)devRegAddress - START_DEVREG;
+  int i = -1;
+  if (offset >= 32 * 0x10) {
+    i = 32 + ((offset - 32 * 0x10) / 0x8);  // renzo davoli
+  } else {
+    i = offset / 0x10;  // renzo davoli
+  }
+  return i;  // renzo davoli
 }
 
 static void syscallHandler(state_t* state) {
@@ -198,8 +207,8 @@ static void syscallHandler(state_t* state) {
     case DOIO:
       klog_print("doio start");
       ACQUIRE_LOCK(&global_lock);
-      unsigned int* commandAddress = (unsigned int*)state->reg_a1;  // get the command address
-      int commandValue = state->reg_a2;                             // get the command value
+      memaddr* commandAddress = (memaddr*)state->reg_a1;  // get the command address
+      int commandValue = state->reg_a2;                   // get the command value
 
       if (commandAddress == NULL) {
         state->reg_a0 = -1;  // if the command address is NULL, return -1
@@ -207,9 +216,9 @@ static void syscallHandler(state_t* state) {
         break;
       }
 
-      pcb_t* current = current_process[getPRID()];     // get the current process
-      current->p_s = *state;                           // save the state of the current process
-      int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
+      pcb_t* current = current_process[getPRID()];           // get the current process
+      current->p_s = *state;                                 // save the state of the current process
+      int devIndex = findDeviceIndex(commandAddress + 0x4);  // get the device index from the command address
       if (devIndex < 0) {
         state->reg_a0 = -1;  // if the device index is not valid, return -1
         RELEASE_LOCK(&global_lock);
@@ -257,8 +266,8 @@ static void syscallHandler(state_t* state) {
     case GETSUPPORTPTR:
       klog_print("getsupportptr start");
       ACQUIRE_LOCK(&global_lock);
-      pcb_t* current1 = current_process[getPRID()];             // get the current process
-      state->reg_a0 = (unsigned int)current1->p_supportStruct;  // return the support struct of the current process
+      pcb_t* current1 = current_process[getPRID()];        // get the current process
+      state->reg_a0 = (memaddr)current1->p_supportStruct;  // return the support struct of the current process
       RELEASE_LOCK(&global_lock);
       break;
 
