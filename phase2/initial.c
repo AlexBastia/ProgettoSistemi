@@ -24,11 +24,9 @@ int main() {
   for (int i = 0; i < NCPU; i++) {
     passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR + (0x10 * i);
     passupvector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
-    passupvector->tlb_refill_stackPtr =
-        (i == 0) ? KERNELSTACK : RAMSTART + (64 * PAGESIZE) + (i * PAGESIZE);
+    passupvector->tlb_refill_stackPtr = (i == 0) ? KERNELSTACK : RAMSTART + (64 * PAGESIZE) + (i * PAGESIZE);
     passupvector->exception_handler = (memaddr)exceptionHandler;
-    passupvector->exception_stackPtr = 
-        (i==0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
+    passupvector->exception_stackPtr = (i == 0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
   }
   /* Initialize Level 2 data structures */
   initPcbs();
@@ -40,7 +38,7 @@ int main() {
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
 
-  //facciamo che device_semaphores[48] è quello dello pseudoclock
+  // facciamo che device_semaphores[48] è quello dello pseudoclock
   for (int i = 0; i < SEMDEVLEN; i++) {
     device_semaphores[i] = 0;
   }
@@ -58,8 +56,7 @@ int main() {
   klog_print("set status");
   // Set Process Tree fields to NULL
   pcb->p_parent = NULL;
-  INIT_LIST_HEAD(&pcb->p_sib); /* TODO: can't set p_sib and p_child to NULL, do
-                                  I have to initialize? */
+  INIT_LIST_HEAD(&pcb->p_sib);  // TODO: can't set p_sib and p_child to NULL, do I have to initialize?
   INIT_LIST_HEAD(&pcb->p_child);
 
   pcb->p_time = 0;
@@ -67,29 +64,24 @@ int main() {
   pcb->p_supportStruct = NULL;
   pcb->p_s.pc_epc = (memaddr)test;
 
-  list_add_tail(&ready_queue, &pcb->p_list); /* TODO: aggiunto in coda per
-                                                evitare starvation, va bene? */
+  list_add_tail(&ready_queue, &pcb->p_list);  // TODO: aggiunto in coda per evitare starvation, va bene?
   process_count++;
-   klog_print("set process count");
+  klog_print("set process count");
   /*IRT*/
-  for (int line = 0; line < N_INTERRUPT_LINES;
-       line++) {  // For each Interrupt Line
-    for (int dev = 0; dev < N_DEV_PER_IL;
-         dev++) {  // For each Device in Interrupt Line
+  for (int line = 0; line < N_INTERRUPT_LINES; line++) {  // For each Interrupt Line
+    for (int dev = 0; dev < N_DEV_PER_IL; dev++) {        // For each Device in Interrupt Line
       int *irt_entry = (int *)IRT_ENTRY(line, dev);
-      *irt_entry |= (1U << IRT_ENTRY_POLICY_BIT);  // Set RP bit to 1
-      for (int cpu_id = 0; cpu_id < NCPU; cpu_id++)
-        *irt_entry |= (1U << cpu_id);  // Set bit at index cpu_id (starting from
-                                       // least significant) to 1 for each CPU
+      *irt_entry |= (1U << IRT_ENTRY_POLICY_BIT);                                  // Set RP bit to 1
+      for (int cpu_id = 0; cpu_id < NCPU; cpu_id++) *irt_entry |= (1U << cpu_id);  // Set bit at index cpu_id (starting from least significant) to 1 for each CPU
     }
   }
   klog_print("set irt");
   /* Set State for other CPUs */
   for (int cpu_id = 1; cpu_id < NCPU; cpu_id++) {
-    state_t *processor_state = (state_t*)((memaddr)BIOSDATAPAGE + cpu_id * sizeof(state_t));
+    state_t *processor_state = (state_t *)((memaddr)BIOSDATAPAGE + cpu_id * sizeof(state_t));
     processor_state->status = MSTATUS_MPP_M;
     processor_state->pc_epc = (memaddr)Scheduler;
-    processor_state->reg_sp =  0x20020000 + (cpu_id * PAGESIZE);;
+    processor_state->reg_sp = 0x20020000 + (cpu_id * PAGESIZE);
     processor_state->entry_hi = 0;
     processor_state->cause = 0;
     processor_state->mie = 0;
