@@ -218,7 +218,9 @@ static void syscallHandler(state_t* state) {
 
       pcb_t* current = current_process[getPRID()];           // get the current process
       current->p_s = *state;                                 // save the state of the current process
-      int devIndex = findDeviceIndex(commandAddress + 0x4);  // get the device index from the command address
+      int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
+      klog_print("doio index:");
+      klog_print_dec(devIndex);
       if (devIndex < 0) {
         state->reg_a0 = -1;  // if the device index is not valid, return -1
         RELEASE_LOCK(&global_lock);

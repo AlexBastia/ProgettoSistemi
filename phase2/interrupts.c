@@ -4,6 +4,7 @@
 void interruptHandler(state_t *current_state) {
   unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK; //trova il device che ha causato l'interrupt
   int intlineNo = getintLineNo(int_code);
+
   switch (intlineNo) {
     case 1:
       pltHandler(current_state);
@@ -93,25 +94,39 @@ void intHandler(int intlineNo, state_t *current_state) {
     unsigned int * writestatusaddress = devAddrBase+0x8;
     int TERMINALWRITEINTERRUPT = *writestatusaddress;  // si spera che questo funzioni
     if (TERMINALWRITEINTERRUPT!=0) {
+      klog_print("interrupt is read");
       devAddrBase += 0x8;
     }
   }
+  klog_print_dec(intlineNo);
+  
   unsigned int status = *(unsigned int *)devAddrBase;  // punto 2
   unsigned int *command = (unsigned int *)devAddrBase + 0x4;
+  ACQUIRE_LOCK(&global_lock);
   *command = ACK;  // punto 3
   int deviceID = findDeviceIndex(devAddrBase);
-  ACQUIRE_LOCK(&global_lock);
+  klog_print_dec(deviceID);
+ 
   int *devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
   (*devSemaphore)++;
       klog_print("verhogen 2");
-      if (*devSemaphore <= 0) {                   // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+      if (*devSemaphore > 1) {
+        klog_print("verhogen 3");
+        pcb_t* current = current_process[getPRID()];  // get the current process
+        insertBlocked(devSemaphore, current);              // insert the current process in the blocked list of the semaphore
+        current_state->pc_epc += 4;                           // increment the program counter
+        current->p_s = *current_state;                        // save the state of the current process
+        current_process[getPRID()] = NULL;
+        RELEASE_LOCK(&global_lock);
+        Scheduler();
+      }else if (*devSemaphore <= 0) {      
+        klog_print("sem < 0");         // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
         pcb_t* unblocked = removeBlocked(devSemaphore);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
         }
       }
-      current_state->pc_epc += 4;  // increment the program counter
-      RELEASE_LOCK(&global_lock);
+    RELEASE_LOCK(&global_lock);
   if (current_process[getPRID()] != NULL) {
     LDST(current_state);
   } else {
