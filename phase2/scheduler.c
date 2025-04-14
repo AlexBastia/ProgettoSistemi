@@ -12,7 +12,7 @@ void Scheduler() {
   klog_print("Scheduler start");
   ACQUIRE_LOCK(&global_lock);
   klog_print("Scheduler lock acquired");
-  if (emptyProcQ(&ready_queue)) {  // TODO capire come implementare la readyQueue
+  if (emptyProcQ(&ready_queue)) {
     klog_print("Scheduler empty queue");
     if (process_count == 0) {
       klog_print("Scheduler process count 0");
@@ -20,7 +20,7 @@ void Scheduler() {
       HALT();
     } else {
       klog_print("Scheduler process count > 0");
-      // non ho ben capito, ma credo che il processo debba aspettare un interrupt
+      // non ho ben capito, ma credo che il processo debba aspettare un interrupt PS: l'ha capito
 
       //! capire cosa cuazzo è sta roba (l'ha scritta il prof, io non c'entro )
       RELEASE_LOCK(&global_lock);
@@ -43,7 +43,7 @@ void Scheduler() {
     }
   } else {
     klog_print("Scheduler not empty queue");
-    pcb_t* next = removeProcQ(&ready_queue);  // TODO: capire come implementare la readyQueue
+    pcb_t* next = removeProcQ(&ready_queue);
     current_process[getPRID()] = next;
     setTIMER(TIMESLICE);
     *((memaddr*)TPR) = 0;

@@ -1,7 +1,6 @@
 #include "headers/interrupts.h"
 #define SAVE_STATE(x) (current_process[x]->p_s = *GET_EXCEPTION_STATE_PTR(x))
-// TODO:
-// capire come leggere i registri del terminale (line 73-75)
+// TODO: capire come leggere i registri del terminale (line 73-75)
 
 void interruptHandler(state_t *current_state) {
   unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK;

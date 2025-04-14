@@ -38,7 +38,7 @@ int main() {
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
 
-  // facciamo che device_semaphores[48] è quello dello pseudoclock
+  // facciamo che device_semaphores[48] è quello dello pseudoclock ok
   for (int i = 0; i < SEMDEVLEN; i++) {
     device_semaphores[i] = 0;
   }
