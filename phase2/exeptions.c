@@ -4,6 +4,7 @@
 #include "headers/scheduler.h"
 
 extern void klog_print(char*);
+extern void klog_print_dec(int);
 
 void passUpordie(int exception);
 
@@ -100,8 +101,8 @@ static void syscallHandler(state_t* state) {
         break;
       }
 
-      memcpy(&newPCB->p_s, state->reg_a1, sizeof(state_t));          // copy the state given in a1 register to the new PCB
-      newPCB->p_supportStruct = (support_t*)(state->reg_a3);  // set the support struct to the one given in a3 register
+      memcpy(&newPCB->p_s, (state_t*)state->reg_a1, sizeof(state_t));  // copy the state given in a1 register to the new PCB
+      newPCB->p_supportStruct = (support_t*)(state->reg_a3);           // set the support struct to the one given in a3 register
 
       pcb_t* parent = current_process[getPRID()];  // set the current process as the parent of the new process based on cpu number
       if (parent != NULL) {
@@ -162,7 +163,7 @@ static void syscallHandler(state_t* state) {
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(semAdd1, current);              // insert the current process in the blocked list of the semaphore
 
-        state->pc_epc += 4;     // increment the program counter
+        state->pc_epc += 4;                               // increment the program counter
         memcpy(&(current->p_s), state, sizeof(state_t));  // save the state of the current process
 
         RELEASE_LOCK(&global_lock);
@@ -185,10 +186,10 @@ static void syscallHandler(state_t* state) {
       klog_print("verhogen 2");
       if (*semAdd2 > 1) {
         klog_print("verhogen 3");
-        pcb_t* current = current_process[getPRID()];  // get the current process
-        insertBlocked(semAdd2, current);              // insert the current process in the blocked list of the semaphore
-        state->pc_epc += 4;                           // increment the program counter
-        memcpy(&(current->p_s), state, sizeof(state_t));                        // save the state of the current process
+        pcb_t* current = current_process[getPRID()];      // get the current process
+        insertBlocked(semAdd2, current);                  // insert the current process in the blocked list of the semaphore
+        state->pc_epc += 4;                               // increment the program counter
+        memcpy(&(current->p_s), state, sizeof(state_t));  // save the state of the current process
         current_process[getPRID()] = NULL;
         RELEASE_LOCK(&global_lock);
         Scheduler();
@@ -217,7 +218,7 @@ static void syscallHandler(state_t* state) {
         break;
       }
 
-      pcb_t* current = current_process[getPRID()];           // get the current process                               // save the state of the current process
+      pcb_t* current = current_process[getPRID()];     // get the current process                               // save the state of the current process
       int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
       klog_print("doio index:");
       klog_print_dec(devIndex);
@@ -230,18 +231,18 @@ static void syscallHandler(state_t* state) {
 
       (*devSemaphore)--;
       // decrement the semaphore value to block the process until the i/o operation is completed
-      state->pc_epc += 4;   
-      memcpy(&(current->p_s), state, sizeof(state_t));                  // increment the program counter
-      insertBlocked(devSemaphore, current);  // insert the current process in the blocked // list of the sema
-      
+      state->pc_epc += 4;
+      memcpy(&(current->p_s), state, sizeof(state_t));  // increment the program counter
+      insertBlocked(devSemaphore, current);             // insert the current process in the blocked // list of the sema
+
       current_process[getPRID()] = NULL;
 
-        RELEASE_LOCK(&global_lock);
-        klog_print("4 \n");
-        state->reg_a0 = *commandAddress;  // return the value of the command address
-        *commandAddress = commandValue;
-        Scheduler();
-        return;
+      RELEASE_LOCK(&global_lock);
+      klog_print("4 \n");
+      state->reg_a0 = *commandAddress;  // return the value of the command address
+      *commandAddress = commandValue;
+      Scheduler();
+      return;
       klog_print("5");
       RELEASE_LOCK(&global_lock);
       break;
