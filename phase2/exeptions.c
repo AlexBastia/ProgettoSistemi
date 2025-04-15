@@ -64,10 +64,10 @@ static void terminateSubtree(pcb_t* process) {
 int findDeviceIndex(memaddr* devRegAddress) {
   unsigned int offset = (unsigned int)devRegAddress - START_DEVREG;
   int i = -1;
-  if (offset >= 32 * 0x10) {
-    i = 32 + ((offset - 32 * 0x10) / 0x8);  // renzo davoli
+  if (offset >= 32 * 0xC) {
+    i = 32 + ((offset - 32 * 0xC) / 0x8);  // renzo davoli
   } else {
-    i = offset / 0x10;  // renzo davoli
+    i = offset / 0xC;  // renzo davoli
   }
   return i;  // renzo davoli
 }
@@ -232,6 +232,8 @@ static void syscallHandler(state_t* state) {
       (*devSemaphore)--;
       // decrement the semaphore value to block the process until the i/o operation is completed
       state->pc_epc += 4;
+      state->reg_a0 = *(commandAddress - 0x4);  // return the value of the command address
+
       memcpy(&(current->p_s), state, sizeof(state_t));  // increment the program counter
       insertBlocked(devSemaphore, current);             // insert the current process in the blocked // list of the sema
 
@@ -239,7 +241,6 @@ static void syscallHandler(state_t* state) {
 
       RELEASE_LOCK(&global_lock);
       klog_print("4 \n");
-      state->reg_a0 = *commandAddress;  // return the value of the command address
       *commandAddress = commandValue;
       Scheduler();
       return;

@@ -24,15 +24,10 @@ void Scheduler() {
 
       //! capire cosa cuazzo è sta roba (l'ha scritta il prof, io non c'entro )
       RELEASE_LOCK(&global_lock);
+      setMIE(MIE_ALL & ~MIE_MTIE_MASK);
       unsigned int status = getSTATUS();
-      klog_print("Scheduler get status");
       status |= MSTATUS_MIE_MASK;
       setSTATUS(status);
-      klog_print("Scheduler set status");
-      setMIE(MIE_ALL & ~MIE_MTIE_MASK);
-      klog_print("Scheduler set mie");
-      setTIMER(TIMESLICE);
-      klog_print("Scheduler set timer");
 
       klog_print("Scheduler wait");
       
