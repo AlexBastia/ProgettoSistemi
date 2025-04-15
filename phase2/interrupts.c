@@ -59,7 +59,8 @@ int getdevNo(int intlineNo) {
 //gestisce gli interrupt da plt
 void pltHandler(state_t *current_state) {
   setTIMER(TIMESLICE);   //Acknowledge the PLT interrupt by loading the timer with a new value using setTIMER.
-  current_process[getPRID()]->p_s = *current_state; //Copy the processor state of the current CPU at the time of the exception into the Current Process’s PCB (p_s) of the current CPU
+  memcpy(&current_process[getPRID()]->p_s, current_state, sizeof(state_t));
+ //Copy the processor state of the current CPU at the time of the exception into the Current Process’s PCB (p_s) of the current CPU
   ACQUIRE_LOCK(&global_lock);
   insertProcQ(&ready_queue, current_process[getPRID()]); //Place the Current Process on the Ready Queue;
   RELEASE_LOCK(&global_lock);
@@ -115,13 +116,14 @@ void intHandler(int intlineNo, state_t *current_state) {
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(devSemaphore, current);              // insert the current process in the blocked list of the semaphore
         current_state->pc_epc += 4;                           // increment the program counter
-        current->p_s = *current_state;                        // save the state of the current process
+        memcpy(&current->p_s, current_state, sizeof(state_t));                       // save the state of the current process
         current_process[getPRID()] = NULL;
         RELEASE_LOCK(&global_lock);
         Scheduler();
       }else if (*devSemaphore <= 0) {      
         klog_print("sem < 0");         // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
-        pcb_t* unblocked = removeBlocked(devSemaphore);  // remove the first process from the blocked list of the semaphore
+        pcb_t* unblocked = removeBlocked(devSemaphore);
+        unblocked->p_s.reg_a0 = status; // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
         }

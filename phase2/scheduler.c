@@ -35,8 +35,8 @@ void Scheduler() {
       klog_print("Scheduler set timer");
 
       klog_print("Scheduler wait");
+      
       *((memaddr*)TPR) = 1;
-
       WAIT();  // attesa di un interrupt
 
       // see Dott. Rovelli’s thesis for more details.

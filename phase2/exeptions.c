@@ -42,8 +42,6 @@ void exceptionHandler() {
   curr->p_time += (cpu_time_end - cpu_time_init);  // update the time of the current process
 
   // SE LE 3 RIGHE QUA SOPRA DANNO PROBLEMI RIVEDERE IMPLEMENTAZIONE
-  current_state->pc_epc += 4;
-  LDST(current_state);  // load the state of the current process
 }
 
 // this helper function is used to terminate the current process subtree
@@ -102,7 +100,7 @@ static void syscallHandler(state_t* state) {
         break;
       }
 
-      newPCB->p_s = *((state_t*)(state->reg_a1));             // copy the state given in a1 register to the new PCB
+      memcpy(&newPCB->p_s, state->reg_a1, sizeof(state_t));          // copy the state given in a1 register to the new PCB
       newPCB->p_supportStruct = (support_t*)(state->reg_a3);  // set the support struct to the one given in a3 register
 
       pcb_t* parent = current_process[getPRID()];  // set the current process as the parent of the new process based on cpu number
@@ -165,7 +163,7 @@ static void syscallHandler(state_t* state) {
         insertBlocked(semAdd1, current);              // insert the current process in the blocked list of the semaphore
 
         state->pc_epc += 4;     // increment the program counter
-        current->p_s = *state;  // save the state of the current process
+        memcpy(&(current->p_s), state, sizeof(state_t));  // save the state of the current process
 
         RELEASE_LOCK(&global_lock);
         klog_print("passeren scheduler");
@@ -174,6 +172,8 @@ static void syscallHandler(state_t* state) {
         break;
       }
       RELEASE_LOCK(&global_lock);
+      state->pc_epc += 4;
+      LDST(state);
       break;
 
     case VERHOGEN:
@@ -188,7 +188,7 @@ static void syscallHandler(state_t* state) {
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(semAdd2, current);              // insert the current process in the blocked list of the semaphore
         state->pc_epc += 4;                           // increment the program counter
-        current->p_s = *state;                        // save the state of the current process
+        memcpy(&(current->p_s), state, sizeof(state_t));                        // save the state of the current process
         current_process[getPRID()] = NULL;
         RELEASE_LOCK(&global_lock);
         Scheduler();
@@ -200,8 +200,9 @@ static void syscallHandler(state_t* state) {
           insertProcQ(&ready_queue, unblocked);
         }
       }
-      state->pc_epc += 4;  // increment the program counter
       RELEASE_LOCK(&global_lock);
+      state->pc_epc += 4;  // increment the program counter
+      LDST(state);
       break;
 
     case DOIO:
@@ -216,8 +217,7 @@ static void syscallHandler(state_t* state) {
         break;
       }
 
-      pcb_t* current = current_process[getPRID()];           // get the current process
-      current->p_s = *state;                                 // save the state of the current process
+      pcb_t* current = current_process[getPRID()];           // get the current process                               // save the state of the current process
       int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
       klog_print("doio index:");
       klog_print_dec(devIndex);
@@ -228,20 +228,21 @@ static void syscallHandler(state_t* state) {
       }
       int* devSemaphore = &device_semaphores[devIndex];  // get the semaphore of the device
 
-      *commandAddress = commandValue;
-
       (*devSemaphore)--;
       // decrement the semaphore value to block the process until the i/o operation is completed
-      if (*devSemaphore < 0) {                 // if the semaphore value is negative, its value can't be decreased
-        insertBlocked(devSemaphore, current);  // insert the current process in the blocked // list of the sema
-        state->pc_epc += 4;                    // increment the program counter
+      state->pc_epc += 4;   
+      memcpy(&(current->p_s), state, sizeof(state_t));                  // increment the program counter
+      insertBlocked(devSemaphore, current);  // insert the current process in the blocked // list of the sema
+      
+      current_process[getPRID()] = NULL;
+
         RELEASE_LOCK(&global_lock);
         klog_print("4 \n");
+        state->reg_a0 = *commandAddress;  // return the value of the command address
+        *commandAddress = commandValue;
         Scheduler();
         return;
-      }
       klog_print("5");
-      state->reg_a0 = *commandAddress;  // return the value of the command address
       RELEASE_LOCK(&global_lock);
       break;
 
@@ -280,9 +281,6 @@ static void syscallHandler(state_t* state) {
       RELEASE_LOCK(&global_lock);
       break;
   }
-
-  state->pc_epc += 4;  // increment the program counter
-  LDST(state);         // load the state
 }
 
 // -----------------------------------------------------------------------------------------------------------
