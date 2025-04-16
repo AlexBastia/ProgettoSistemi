@@ -19,6 +19,7 @@ struct list_head ready_queue;
 pcb_PTR current_process[NCPU];
 int device_semaphores[SEMDEVLEN];
 volatile unsigned int global_lock = 1; /* 0 or 1 */
+cpu_t proc_time_started[NCPU];
 
 int main() {
   /* Populate Pass Up Vector */

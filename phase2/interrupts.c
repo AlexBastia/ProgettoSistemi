@@ -5,6 +5,9 @@ extern void klog_print(char *);
 extern void klog_print_dec(int);
 
 void interruptHandler(state_t *current_state) {
+  //cpu_t end_time;
+  //STCK(end_time);  // get the current time
+  //current_process[getPRID()]->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
   klog_print("--Inizio gestione Interrupt--");
   unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK;  // trova il device che ha causato l'interrupt
   int intlineNo = getintLineNo(int_code);

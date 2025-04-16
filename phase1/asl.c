@@ -95,10 +95,31 @@ pcb_t* removeBlocked(int* semAdd) {
   return NULL;
 }
 
-// supponiamo sia come outBlocked ma con in input solo il pid, che consegue
-// dover scorrere tutti i semafori e tutte le loro queue
-/*pcb_t* outBlockedPid(int pid) {
-}*/
+
+pcb_t* outBlockedPid(int pid) {
+  semd_t* pos = NULL;
+  pcb_t* p = NULL;
+  list_for_each_entry(pos, &semd_h, s_link) {
+    list_for_each_entry(p, &pos->s_procq, p_list) {
+      if (p->p_pid == pid) {
+        break;
+      }else{
+        p = NULL;
+      }
+    }
+  }
+  // prima facevamo con container of ma bisogna passargli una list_head* non il
+  // semAdd che è un pcb_t*, ecco perche dava errore ora cerco il semaforo tra
+  // quelli attivi, se lo trovo esco dal ciclo e faccio outProcq altrimenti
+  // ritorno null
+  if(p==NULL) return NULL;
+  p = outProcQ(&pos->s_procq, pid);
+  if (emptyProcQ(&pos->s_procq)) {
+    list_del(&pos->s_link);
+    list_add(&pos->s_link, &semdFree_h);
+  }
+  return p;
+}
 
 pcb_t* outBlocked(pcb_t* p) {
   semd_t* pos = NULL;

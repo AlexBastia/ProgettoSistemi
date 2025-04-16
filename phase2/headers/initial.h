@@ -16,5 +16,6 @@ extern pcb_PTR
 extern int device_semaphores[SEMDEVLEN];  /* array of semaphores, one for each
                                          (sub)device */
 extern volatile unsigned int global_lock; /* 0 or 1 */
+extern cpu_t proc_time_started[NCPU]; /* Last switch to 'running' state of current process  */
 
 #endif

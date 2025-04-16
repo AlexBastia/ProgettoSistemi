@@ -41,6 +41,7 @@ void Scheduler() {
     current_process[getPRID()] = next;
     setTIMER(TIMESLICE);
     *((memaddr*)TPR) = 0;
+    STCK(proc_time_started[getPRID()]);  // set the time of the current process
     RELEASE_LOCK(&global_lock);
     LDST(&(next->p_s));  // context switch al nuovo processo
   }
