@@ -2,6 +2,7 @@
 
 #include <uriscv/arch.h>
 #include <uriscv/const.h>
+#include <uriscv/liburiscv.h>
 #include <uriscv/types.h>
 
 #include "../klog.c"
@@ -85,6 +86,7 @@ int main() {
     processor_state->entry_hi = 0;
     processor_state->cause = 0;
     processor_state->mie = 0;
+    INITCPU(cpu_id, processor_state);
   }
 
   /* TODO: come mai non lo devo fare per il primo CPU? */

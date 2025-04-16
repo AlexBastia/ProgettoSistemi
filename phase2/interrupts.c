@@ -5,6 +5,7 @@ extern void klog_print(char *);
 extern void klog_print_dec(int);
 
 void interruptHandler(state_t *current_state) {
+  klog_print("--Inizio gestione Interrupt--");
   unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK;  // trova il device che ha causato l'interrupt
   int intlineNo = getintLineNo(int_code);
 
@@ -81,6 +82,7 @@ void UNBLOCKALLWAITINGCLOCKPCBS() {
 
 // gestisce gli interrupt da pseudoclock
 void timerHandler(state_t *current_state) {
+  klog_print("--Timer Handler--");
   LDIT(PSECOND);                 // Acknowledge the interrupt by loading the Interval Timer with a new value: 100 milliseconds
   UNBLOCKALLWAITINGCLOCKPCBS();  // Unblock all PCBs blocked waiting a Pseudo-clock tick.
   pcb_PTR curr = current_process[getPRID()];
@@ -91,6 +93,7 @@ void timerHandler(state_t *current_state) {
   Scheduler();
 }
 void intHandler(int intlineNo, state_t *current_state) {
+  klog_print("--Int Handler--");
   int devNo = getdevNo(intlineNo);
   memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
   // come sacrosanta minchia si fa a capire quale dei due subdevice del terminal (con lo schema alla fine del pdf, in device registers) causa l'interrupt????
@@ -104,8 +107,8 @@ void intHandler(int intlineNo, state_t *current_state) {
   }
   klog_print_dec(intlineNo);
 
-  unsigned int status = *(unsigned int *)devAddrBase;  // punto 2
-  unsigned int *command = (unsigned int *)devAddrBase + 0x4;
+  unsigned int status = *(unsigned int *)devAddrBase;       // punto 2
+  unsigned int *command = (unsigned int *)devAddrBase + 3;  // Change: per qualche strano motivo il test mette il comand field a base +3 e funziona...
   ACQUIRE_LOCK(&global_lock);
   *command = ACK;  // punto 3
   int deviceID = findDeviceIndex((memaddr *)devAddrBase);
@@ -114,6 +117,7 @@ void intHandler(int intlineNo, state_t *current_state) {
   int *devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
   (*devSemaphore)++;
   klog_print("verhogen 2");
+  // Change: non so se e' necessario questo controllo qua'
   if (*devSemaphore > 1) {
     klog_print("verhogen 3");
     pcb_t *current = current_process[getPRID()];            // get the current process
@@ -133,8 +137,10 @@ void intHandler(int intlineNo, state_t *current_state) {
   }
   RELEASE_LOCK(&global_lock);
   if (current_process[getPRID()] != NULL) {
+    klog_print("--CP not null, loading state--");
     LDST(current_state);
   } else {
+    klog_print("--CP null, calling Scheduly--");
     Scheduler();
   }
 }

@@ -1,10 +1,12 @@
 #include "headers/exceptions.h"
+
 #include "headers/initial.h"
 #include "headers/interrupts.h"
 #include "headers/scheduler.h"
 
 extern void klog_print(char*);
 extern void klog_print_dec(int);
+extern void klog_print_hex(int);
 
 void passUpordie(int exception);
 
@@ -36,6 +38,8 @@ void exceptionHandler() {
     programTrapHandler(current_state);
   }
 
+  // Change: ste robe qua in teoria non vengono mai eseguite, dato che o si chiama Scheduler, o si fa LDST o passUpOrDie.
+  // Dobbiamo capire in quali casi effettivamente va aumentato il tempo accumolato dal processo.
   pcb_t* curr = current_process[cpu_id];  // get the current process
 
   STCK(cpu_time_end);  // call the timer function to update the time of the current process
@@ -62,12 +66,12 @@ static void terminateSubtree(pcb_t* process) {
 // che identifica il semaforo corrispondente.
 // Distingue i sub-device nel caso dei register dei terminali.
 int findDeviceIndex(memaddr* devRegAddress) {
-  unsigned int offset = (unsigned int)devRegAddress - START_DEVREG;
+  unsigned int offset = (unsigned int)(devRegAddress)-START_DEVREG;
   int i = -1;
-  if (offset >= 32 * 0xC) {
-    i = 32 + ((offset - 32 * 0xC) / 0x8);  // renzo davoli
+  if (offset >= 32 * 0x10) {
+    i = 32 + ((offset - (32 * 0x10)) / 0x8);  // renzo davoli
   } else {
-    i = offset / 0xC;  // renzo davoli
+    i = offset / 0x10;  // renzo davoli
   }
   return i;  // renzo davoli
 }
@@ -157,9 +161,10 @@ static void syscallHandler(state_t* state) {
     case PASSEREN:
       klog_print("passeren start");
       ACQUIRE_LOCK(&global_lock);
-      int* semAdd1 = (int*)state->reg_a1;             // get the semaphore address
-      (*semAdd1)--;                                   // decrement the semaphore value
-      if (*semAdd1 < 0) {                             // if the semaphore address is negative, its value can't be decreased
+      int* semAdd1 = (int*)state->reg_a1;  // get the semaphore address
+      (*semAdd1)--;                        // decrement the semaphore value
+      if (*semAdd1 < 0) {                  // if the semaphore address is negative, its value can't be decreased
+        /* Block calling process (wait for V) */
         pcb_t* current = current_process[getPRID()];  // get the current process
         insertBlocked(semAdd1, current);              // insert the current process in the blocked list of the semaphore
 
@@ -172,6 +177,16 @@ static void syscallHandler(state_t* state) {
         klog_print("passeren scheduler end");
         break;
       }
+
+      // Change: anche la P puo' sbloccare roba in teoria
+      else if (*semAdd1 >= 1) {  // if the semaphore value is greater than or equal to 1, there are processes waiting on the semaphore
+        /* Unblock process waiting for P */
+        pcb_t* unblocked = removeBlocked(semAdd1);  // remove the first process from the blocked list of the semaphore
+        if (unblocked != NULL) {
+          insertProcQ(&ready_queue, unblocked);
+        }
+      }
+
       RELEASE_LOCK(&global_lock);
       state->pc_epc += 4;
       LDST(state);
@@ -185,6 +200,7 @@ static void syscallHandler(state_t* state) {
       (*semAdd2)++;
       klog_print("verhogen 2");
       if (*semAdd2 > 1) {
+        /* Block calling process (wait for P) */
         klog_print("verhogen 3");
         pcb_t* current = current_process[getPRID()];      // get the current process
         insertBlocked(semAdd2, current);                  // insert the current process in the blocked list of the semaphore
@@ -195,7 +211,8 @@ static void syscallHandler(state_t* state) {
         Scheduler();
 
         return;
-      } else if (*semAdd2 <= 0) {                   // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+      } else if (*semAdd2 <= 0) {  // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
+        /* Unblock process waiting for V */
         pcb_t* unblocked = removeBlocked(semAdd2);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
@@ -215,37 +232,42 @@ static void syscallHandler(state_t* state) {
       if (commandAddress == NULL) {
         state->reg_a0 = -1;  // if the command address is NULL, return -1
         RELEASE_LOCK(&global_lock);
+        // Change: dato che non lo facciamo piu' alla fine, dobbiamo caricare il processo qui'
+        state->pc_epc += 4;  // increment the program counter
+        LDST(state);
         break;
       }
 
-      pcb_t* current = current_process[getPRID()];     // get the current process                               // save the state of the current process
-      int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
+      /* Get device semaphore */
+      pcb_t* current = current_process[getPRID()];         // get the current process
+      int devIndex = findDeviceIndex(commandAddress - 3);  // get the device index from the command address
       klog_print("doio index:");
       klog_print_dec(devIndex);
+
       if (devIndex < 0) {
         state->reg_a0 = -1;  // if the device index is not valid, return -1
         RELEASE_LOCK(&global_lock);
+        // Change: dato che non lo facciamo piu' alla fine, dobbiamo caricare il processo qui'
+        state->pc_epc += 4;  // increment the program counter
+        LDST(state);
         break;
       }
       int* devSemaphore = &device_semaphores[devIndex];  // get the semaphore of the device
 
-      (*devSemaphore)--;
-      // decrement the semaphore value to block the process until the i/o operation is completed
-      state->pc_epc += 4;
-      state->reg_a0 = *(commandAddress - 0x4);  // return the value of the command address
+      /* P on device semaphore to block process */
+      (*devSemaphore)--;                        // decrement the semaphore value to block the process until the i/o operation is completed
+      state->pc_epc += 4;                       // increment the program counter
+      state->reg_a0 = *(commandAddress - 0x4);  // return the value of the status field in device register
 
-      memcpy(&(current->p_s), state, sizeof(state_t));  // increment the program counter
-      insertBlocked(devSemaphore, current);             // insert the current process in the blocked // list of the sema
-
+      // Change: per qualche motivo quando current si risveglia sembra ripartire dall'inizio di test, ci guardo domani
+      memcpy(&(current->p_s), state, sizeof(state_t));
+      insertBlocked(devSemaphore, current);  // insert the current process in the blocked
       current_process[getPRID()] = NULL;
 
       RELEASE_LOCK(&global_lock);
       klog_print("4 \n");
       *commandAddress = commandValue;
       Scheduler();
-      return;
-      klog_print("5");
-      RELEASE_LOCK(&global_lock);
       break;
 
     case GETTIME:

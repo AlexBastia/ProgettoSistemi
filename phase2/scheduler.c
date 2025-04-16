@@ -15,10 +15,12 @@ void Scheduler() {
   if (emptyProcQ(&ready_queue)) {
     klog_print("Scheduler empty queue");
     if (process_count == 0) {
+      /* No more processes */
       klog_print("Scheduler process count 0");
       RELEASE_LOCK(&global_lock);
       HALT();
     } else {
+      /* Wait for interrupt */
       klog_print("Scheduler process count > 0");
       // non ho ben capito, ma credo che il processo debba aspettare un interrupt PS: l'ha capito
 
@@ -30,13 +32,14 @@ void Scheduler() {
       setSTATUS(status);
 
       klog_print("Scheduler wait");
-      
+
       *((memaddr*)TPR) = 1;
       WAIT();  // attesa di un interrupt
 
       // see Dott. Rovelli’s thesis for more details.
     }
   } else {
+    /* Run process */
     klog_print("Scheduler not empty queue");
     pcb_t* next = removeProcQ(&ready_queue);
     current_process[getPRID()] = next;
