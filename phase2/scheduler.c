@@ -9,9 +9,7 @@
 extern void klog_print(char*);
 
 void Scheduler() {
-  klog_print("Scheduler start");
   ACQUIRE_LOCK(&global_lock);
-  klog_print("Scheduler lock acquired");
   if (emptyProcQ(&ready_queue)) {
     klog_print("Scheduler empty queue");
     if (process_count == 0) {
@@ -30,8 +28,6 @@ void Scheduler() {
       unsigned int status = getSTATUS();
       status |= MSTATUS_MIE_MASK;
       setSTATUS(status);
-
-      klog_print("Scheduler wait");
 
       *((memaddr*)TPR) = 1;
       WAIT();  // attesa di un interrupt

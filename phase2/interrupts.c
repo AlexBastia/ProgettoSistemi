@@ -101,7 +101,7 @@ void intHandler(int intlineNo, state_t *current_state) {
     unsigned int *writestatusaddress = (unsigned int *)devAddrBase + 0x8;
     int TERMINALWRITEINTERRUPT = *writestatusaddress;  // si spera che questo funzioni
     if (TERMINALWRITEINTERRUPT != 0) {
-      klog_print("interrupt is read");
+      klog_print("interrupt is write");
       devAddrBase += 0x8;
     }
   }
@@ -128,19 +128,19 @@ void intHandler(int intlineNo, state_t *current_state) {
     RELEASE_LOCK(&global_lock);
     Scheduler();
   } else if (*devSemaphore <= 0) {
-    klog_print("sem < 0");  // if the semaphore value is less than or equal to 0, there are processes waiting on the semaphore
     pcb_t *unblocked = removeBlocked(devSemaphore);
-    unblocked->p_s.reg_a0 = status;  // remove the first process from the blocked list of the semaphore
+    unblocked->p_s.reg_a0 = OKCHARTRANS;  // remove the first process from the blocked list of the semaphore
+    klog_print_hex(unblocked->p_s.reg_a0);
     if (unblocked != NULL) {
       insertProcQ(&ready_queue, unblocked);
     }
   }
   RELEASE_LOCK(&global_lock);
   if (current_process[getPRID()] != NULL) {
-    klog_print("--CP not null, loading state--");
+    klog_print("--loading state--");
     LDST(current_state);
   } else {
-    klog_print("--CP null, calling Scheduly--");
+    klog_print("--calling Scheduly--");
     Scheduler();
   }
 }

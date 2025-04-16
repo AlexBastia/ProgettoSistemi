@@ -96,26 +96,32 @@ static void syscallHandler(state_t* state) {
   klog_print("inizio switch");
   switch (syscall_code) {
     case CREATEPROCESS:  // this call creates a new process
-      klog_print("createprocess start");
+      klog_print("createprocess start \n\n\n\n\n\n\n\n\n\n\n\n\n\n");
       ACQUIRE_LOCK(&global_lock);  // acquire the lock to avoid race conditions
+     
       pcb_t* newPCB = allocPcb();  // allocate a new PCB
+      klog_print("createprocess 1");
       if (newPCB == NULL) {        // if the PCB is NULL, the allocation failed for lack of resources
         RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // return -1 to signal the error
         break;
       }
-
+      klog_print("createprocess 1.1");
       memcpy(&newPCB->p_s, (state_t*)state->reg_a1, sizeof(state_t));  // copy the state given in a1 register to the new PCB
-      newPCB->p_supportStruct = (support_t*)(state->reg_a3);           // set the support struct to the one given in a3 register
-
+      memcpy(&newPCB->p_supportStruct, (support_t*)(state->reg_a3), sizeof(support_t));           // set the support struct to the one given in a3 register
+      klog_print("createprocess 2");
       pcb_t* parent = current_process[getPRID()];  // set the current process as the parent of the new process based on cpu number
+      klog_print("createprocess 3");
       if (parent != NULL) {
+        klog_print("createprocess 3.1");
         insertChild(parent, newPCB);
       }
-
+      klog_print("createprocess 4");
       insertProcQ(&ready_queue, newPCB);
+      klog_print("createprocess 5");
       process_count++;
       RELEASE_LOCK(&global_lock);
+      klog_print("createprocess 6");
       state->reg_a0 = newPCB->p_pid;  // return the pid of the new process
       break;
 
@@ -172,9 +178,7 @@ static void syscallHandler(state_t* state) {
         memcpy(&(current->p_s), state, sizeof(state_t));  // save the state of the current process
 
         RELEASE_LOCK(&global_lock);
-        klog_print("passeren scheduler");
         Scheduler();
-        klog_print("passeren scheduler end");
         break;
       }
 
@@ -241,8 +245,6 @@ static void syscallHandler(state_t* state) {
       /* Get device semaphore */
       pcb_t* current = current_process[getPRID()];         // get the current process
       int devIndex = findDeviceIndex(commandAddress - 3);  // get the device index from the command address
-      klog_print("doio index:");
-      klog_print_dec(devIndex);
 
       if (devIndex < 0) {
         state->reg_a0 = -1;  // if the device index is not valid, return -1
@@ -257,7 +259,7 @@ static void syscallHandler(state_t* state) {
       /* P on device semaphore to block process */
       (*devSemaphore)--;                        // decrement the semaphore value to block the process until the i/o operation is completed
       state->pc_epc += 4;                       // increment the program counter
-      state->reg_a0 = *(commandAddress - 0x4);  // return the value of the status field in device register
+      state->reg_a0 = *(commandAddress);  // return the value of the status field in device register
 
       // Change: per qualche motivo quando current si risveglia sembra ripartire dall'inizio di test, ci guardo domani
       memcpy(&(current->p_s), state, sizeof(state_t));
@@ -265,7 +267,6 @@ static void syscallHandler(state_t* state) {
       current_process[getPRID()] = NULL;
 
       RELEASE_LOCK(&global_lock);
-      klog_print("4 \n");
       *commandAddress = commandValue;
       Scheduler();
       break;
@@ -350,10 +351,12 @@ void passUpordie(int exception) {
   }
 
   // PASS UP: copia lo stato dell'eccezione
-  support_t* sup = current->p_supportStruct;
+  support_t* sup=NULL;;
+  memcpy(sup, current->p_supportStruct, sizeof(support_t));  // get the support struct of the current process
   sup->sup_exceptState[exception] = *exc_state;
 
-  context_t* ctx = &sup->sup_exceptContext[exception];
+  context_t* ctx= NULL;
+  memcpy(ctx, &sup->sup_exceptContext[exception], sizeof(context_t));  // get the context of the current process
 
   RELEASE_LOCK(&global_lock);
 
