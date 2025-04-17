@@ -7,7 +7,7 @@
 #include "headers/interrupts.h"
 
 extern void klog_print(char*);
-
+extern void klog_print_dec(int);
 void Scheduler() {
   ACQUIRE_LOCK(&global_lock);
   if (emptyProcQ(&ready_queue)) {
@@ -43,6 +43,8 @@ void Scheduler() {
     *((memaddr*)TPR) = 0;
     STCK(proc_time_started[getPRID()]);  // set the time of the current process
     RELEASE_LOCK(&global_lock);
+    klog_print("current pid:");
+    klog_print_dec(next->p_pid);
     LDST(&(next->p_s));  // context switch al nuovo processo
   }
 }

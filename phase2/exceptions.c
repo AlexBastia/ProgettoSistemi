@@ -32,21 +32,26 @@ void exceptionHandler() {
 
 // this helper function is used to terminate the current process subtree
 static void terminateSubtree(pcb_t* process) {
+  // Terminate all children
   while (!emptyChild(process)) {
     pcb_t* child = removeChild(process);  // remove the first child of the process
-    if (child != NULL) {
-      terminateSubtree(child);
-      if (process->p_semAdd != NULL) {
-        // Process blocked on semaphore
-        outBlocked(child);
-      } else if (outProcQ(&ready_queue, child) == NULL) {
-        // Process running (or doesn't exist?)
-        klog_print("terminateSubtree: process is running on another cpu");
-      };
-      process_count--;
-      freePcb(child);
-    }
+    terminateSubtree(child);
   }
+  // Terminate calling process
+  if (process->p_semAdd != NULL) {
+    // Process blocked on semaphore
+    outBlocked(process);
+  } else if (outProcQ(&ready_queue, process) == NULL) {
+    // Process running (or doesn't exist?)
+    klog_print("terminateSubtree: process is running on another cpu");
+  };
+  process_count--;
+  if (process->p_parent != NULL) {
+    outChild(process);  // remove the process from the parent's children list
+  }
+  klog_print("terminating process id:");
+  klog_print_dec(process->p_pid);
+  freePcb(process);
 }
 
 // Passato l'indirizzo del device register, restituisce un indice unico per ogni device
@@ -94,9 +99,8 @@ static void syscallHandler(state_t* state) {
         break;
       }
       memcpy(&newPCB->p_s, (state_t*)state->reg_a1, sizeof(state_t));  // copy the state given in a1 register to the new PCB
-      // if ((int)(state->reg_a3) != (int)NULL) {
-      //   memcpy(newPCB->p_supportStruct, (support_t*)(state->reg_a3), sizeof(support_t));  // set the support struct to the one given in a3 register
-      // }
+      
+      newPCB->p_supportStruct = (support_t*) state->reg_a3;
       pcb_t* parent = current_process[getPRID()];  // set the current process as the parent of the new process based on cpu number
       klog_print(" parent id:");
       klog_print_dec((int)parent->p_pid);
@@ -128,7 +132,6 @@ static void syscallHandler(state_t* state) {
           pcb_t* pcb = container_of(iter, pcb_t, p_list);
           if (pcb->p_pid == pid) {
             tbt = outProcQ(&ready_queue, pcb);
-            ;
             break;
           }
         }
@@ -142,16 +145,7 @@ static void syscallHandler(state_t* state) {
         }
       }
 
-      if (!emptyChild(tbt)) {
-        terminateSubtree(tbt);  // terminate the subtree of the process to be terminated
-      }
-
-      if (tbt->p_parent != NULL) {
-        outChild(tbt);  // remove the process from the parent's children list
-      }
-
-      process_count--;
-      freePcb(tbt);                // free the PCB
+      terminateSubtree(tbt);  // terminate the subtree of the process to be terminated
       RELEASE_LOCK(&global_lock);  // release the lock
       Scheduler();                 // call the scheduler to select the next process
       break;
@@ -348,7 +342,7 @@ void tlbExceptionHandler(state_t* state) {
   if (cause == 0) {                               // if the cause is a TLB refill
     uTLB_RefillHandler();
   } else {
-    passUpordie(GENERALEXCEPT);
+    passUpordie(PGFAULTEXCEPT);
   }
 }
 
@@ -382,19 +376,12 @@ void passUpordie(int exception) {
   }
 
   // PASS UP: copia lo stato dell'eccezione
-  support_t* sup = NULL;
-  memcpy(sup, current->p_supportStruct, sizeof(support_t));  // get the support struct of the current process
-  sup->sup_exceptState[exception] = *exc_state;
-
-  context_t* ctx = NULL;
-  memcpy(ctx, &sup->sup_exceptContext[exception], sizeof(context_t));  // get the context of the current process
+  support_t* sup = (support_t*)current->p_supportStruct;
+  memcpy(&sup->sup_exceptState[exception], exc_state, sizeof(state_t));
+  context_t* ctx = &sup->sup_exceptContext[exception];
 
   RELEASE_LOCK(&global_lock);
 
-  state_t new_state;
-  new_state.status = ctx->status;
-  new_state.pc_epc = ctx->pc;
-  new_state.gpr[29] = ctx->stackPtr;  // $sp = gpr[29]
 
-  LDST(&new_state);
+  LDCXT(ctx->stackPtr, ctx->status, ctx->pc);  // load the context
 }

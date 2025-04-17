@@ -76,9 +76,12 @@ void pltHandler(state_t *current_state) {
 }
 
 void UNBLOCKALLWAITINGCLOCKPCBS() {
+  klog_print("--Unblock all waiting clock PCBs--");
   pcb_t *pcb = NULL;
   while ((pcb = removeBlocked(&device_semaphores[PSEUDOCLOCK])) != NULL) {
     ACQUIRE_LOCK(&global_lock);
+    klog_print("unblocking pid:");
+    klog_print_dec(pcb->p_pid);
     insertProcQ(&ready_queue, pcb);
     RELEASE_LOCK(&global_lock);
   }
@@ -139,12 +142,13 @@ void intHandler(int intlineNo, state_t *current_state) {
       insertProcQ(&ready_queue, unblocked);
     }
   }
-  RELEASE_LOCK(&global_lock);
   if (current_process[getPRID()] != NULL) {
+    RELEASE_LOCK(&global_lock);
     klog_print("--loading state--");
     LDST(current_state);
   } else {
     klog_print("--calling Scheduly--");
+    RELEASE_LOCK(&global_lock);
     Scheduler();
   }
 }
