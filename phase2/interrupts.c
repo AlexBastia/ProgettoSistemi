@@ -3,11 +3,12 @@
 
 extern void klog_print(char *);
 extern void klog_print_dec(int);
+extern void klog_print_hex(int);
 
 void interruptHandler(state_t *current_state) {
-  //cpu_t end_time;
-  //STCK(end_time);  // get the current time
-  //current_process[getPRID()]->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
+  // cpu_t end_time;
+  // STCK(end_time);  // get the current time
+  // current_process[getPRID()]->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
   klog_print("--Inizio gestione Interrupt--");
   unsigned int int_code = getCAUSE() & CAUSE_EXCCODE_MASK;  // trova il device che ha causato l'interrupt
   int intlineNo = getintLineNo(int_code);
@@ -75,8 +76,8 @@ void pltHandler(state_t *current_state) {
 }
 
 void UNBLOCKALLWAITINGCLOCKPCBS() {
-  pcb_t *pcb = removeBlocked(&device_semaphores[PSEUDOCLOCK]);
-  if (pcb != NULL) {
+  pcb_t *pcb = NULL;
+  while ((pcb = removeBlocked(&device_semaphores[PSEUDOCLOCK])) != NULL) {
     ACQUIRE_LOCK(&global_lock);
     insertProcQ(&ready_queue, pcb);
     RELEASE_LOCK(&global_lock);

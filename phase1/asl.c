@@ -95,25 +95,22 @@ pcb_t* removeBlocked(int* semAdd) {
   return NULL;
 }
 
-
 pcb_t* outBlockedPid(int pid) {
   semd_t* pos = NULL;
   pcb_t* p = NULL;
-  list_for_each_entry(pos, &semd_h, s_link) {
-    list_for_each_entry(p, &pos->s_procq, p_list) {
+  char found = 0;                                    // Change: uso flag perche' se cambiamo p all'interno del for si rompe
+  list_for_each_entry(pos, &semd_h, s_link) {        // For each active semaphore
+    list_for_each_entry(p, &pos->s_procq, p_list) {  // For each blocked pcb on the semaphore
       if (p->p_pid == pid) {
+        found = 1;
         break;
-      }else{
-        p = NULL;
       }
     }
+    if (found == 1) break;  // Change: se ho trovato il pcb, esco anche dal for esterno cosi' pos e' il semaforo corretto
   }
-  // prima facevamo con container of ma bisogna passargli una list_head* non il
-  // semAdd che è un pcb_t*, ecco perche dava errore ora cerco il semaforo tra
-  // quelli attivi, se lo trovo esco dal ciclo e faccio outProcq altrimenti
-  // ritorno null
-  if(p==NULL) return NULL;
-  p = outProcQ(&pos->s_procq, pid);
+  if (found == 0) return NULL;
+
+  p = outProcQ(&pos->s_procq, p);  // Change: passo p al posto di pid
   if (emptyProcQ(&pos->s_procq)) {
     list_del(&pos->s_link);
     list_add(&pos->s_link, &semdFree_h);
@@ -123,12 +120,17 @@ pcb_t* outBlockedPid(int pid) {
 
 pcb_t* outBlocked(pcb_t* p) {
   semd_t* pos = NULL;
+  char found = 0;
   list_for_each_entry(pos, &semd_h, s_link) {
     if (pos->s_key == p->p_semAdd) {
+      found = 1;
       break;
     }
   }
-  if (pos == NULL) return NULL;
+  // Change: quando il for finisce senza aver trovato il semaforo, il valore di pos non e' NULL
+  // ma e' la testa della lista, quindi potrei cambiare il controllo ma preferisco usare una flag
+  if (found == 0) return NULL;
+
   // prima facevamo con container of ma bisogna passargli una list_head* non il
   // semAdd che è un pcb_t*, ecco perche dava errore ora cerco il semaforo tra
   // quelli attivi, se lo trovo esco dal ciclo e faccio outProcq altrimenti
@@ -144,8 +146,8 @@ pcb_t* outBlocked(pcb_t* p) {
 pcb_t* headBlocked(int* semAdd) {
   semd_t* pos;                                 // semaforo
   list_for_each_entry(pos, &semd_h, s_link) {  // scorro la lista dei semafori
-    if (semAdd == pos->s_key) {         // se il semaforo è quello cercato
-      return headProcQ(&pos->s_procq);  // ritorno il primo processo in coda
+    if (semAdd == pos->s_key) {                // se il semaforo è quello cercato
+      return headProcQ(&pos->s_procq);         // ritorno il primo processo in coda
     }
   }
   return NULL;

@@ -698,6 +698,7 @@ void p10() {
     PANIC();
   }
 
+  print("p10 is ending p10 and p9\n");
   SYSCALL(TERMPROCESS, ppid, 0, 0);
 
   print("Error: p10 didn't die with its parent!\n");
