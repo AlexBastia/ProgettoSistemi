@@ -95,6 +95,23 @@ pcb_t* removeBlocked(int* semAdd) {
   return NULL;
 }
 
+pcb_t* getProc(int pid) {
+  semd_t* pos = NULL;
+  pcb_t* p = NULL;
+  char found = 0;                                    // Change: uso flag perche' se cambiamo p all'interno del for si rompe
+  list_for_each_entry(pos, &semd_h, s_link) {        // For each active semaphore
+    list_for_each_entry(p, &pos->s_procq, p_list) {  // For each blocked pcb on the semaphore
+      if (p->p_pid == pid) {
+        found = 1;
+        break;
+      }
+    }
+    if (found == 1) break;  // Change: se ho trovato il pcb, esco anche dal for esterno cosi' pos e' il semaforo corretto
+  }
+  if (found == 0) return NULL;
+  return p;
+}
+
 pcb_t* outBlockedPid(int pid) {
   semd_t* pos = NULL;
   pcb_t* p = NULL;

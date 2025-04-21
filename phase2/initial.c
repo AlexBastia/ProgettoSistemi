@@ -12,6 +12,7 @@
 #include "headers/scheduler.h"
 
 extern void test();
+extern void uTLB_RefillHandler();
 
 /* Declaration of global variables */
 int process_count;
@@ -23,12 +24,13 @@ cpu_t proc_time_started[NCPU];
 
 int main() {
   /* Populate Pass Up Vector */
+  passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR;
   for (int i = 0; i < NCPU; i++) {
-    passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR + (0x10 * i);
     passupvector->tlb_refill_handler = (memaddr)uTLB_RefillHandler;
     passupvector->tlb_refill_stackPtr = (i == 0) ? KERNELSTACK : RAMSTART + (64 * PAGESIZE) + (i * PAGESIZE);
     passupvector->exception_handler = (memaddr)exceptionHandler;
     passupvector->exception_stackPtr = (i == 0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
+    passupvector++;
   }
   /* Initialize Level 2 data structures */
   initPcbs();
@@ -39,8 +41,6 @@ int main() {
   INIT_LIST_HEAD(&ready_queue);
   for (int i = 0; i < NCPU; i++) current_process[i] = NULL;
   global_lock = 0;
-
-  // facciamo che device_semaphores[48] è quello dello pseudoclock ok
   for (int i = 0; i < SEMDEVLEN; i++) {
     device_semaphores[i] = 0;
   }
@@ -55,43 +55,33 @@ int main() {
   // Enable interrupts and kernel mode
   pcb->p_s.mie = MIE_ALL;
   pcb->p_s.status = MSTATUS_MIE_MASK | MSTATUS_MPP_M;
-  klog_print("set status");
-  // Set Process Tree fields to NULL
-  pcb->p_parent = NULL;
-  INIT_LIST_HEAD(&pcb->p_sib);  // TODO: can't set p_sib and p_child to NULL, do I have to initialize?
-  INIT_LIST_HEAD(&pcb->p_child);
 
-  pcb->p_time = 0;
-  pcb->p_semAdd = NULL;
-  pcb->p_supportStruct = NULL;
   pcb->p_s.pc_epc = (memaddr)test;
-
-  list_add_tail(&ready_queue, &pcb->p_list);  // TODO: aggiunto in coda per evitare starvation, va bene?
+  insertProcQ(&ready_queue, pcb);
   process_count++;
-  klog_print("set process count");
+
   /*IRT*/
   for (int line = 0; line < N_INTERRUPT_LINES; line++) {  // For each Interrupt Line
     for (int dev = 0; dev < N_DEV_PER_IL; dev++) {        // For each Device in Interrupt Line
       int *irt_entry = (int *)IRT_ENTRY(line, dev);
-      *irt_entry |= (1U << IRT_ENTRY_POLICY_BIT);                                  // Set RP bit to 1
+      *irt_entry = IRT_RP_BIT_ON;                                                  // Set RP bit to 1
       for (int cpu_id = 0; cpu_id < NCPU; cpu_id++) *irt_entry |= (1U << cpu_id);  // Set bit at index cpu_id (starting from least significant) to 1 for each CPU
     }
   }
-  klog_print("set irt");
+
   /* Set State for other CPUs */
-  for (int cpu_id = 1; cpu_id < NCPU; cpu_id++) {
-    state_t *processor_state = (state_t *)((memaddr)BIOSDATAPAGE + cpu_id * sizeof(state_t));
-    processor_state->status = MSTATUS_MPP_M;
-    processor_state->pc_epc = (memaddr)Scheduler;
-    processor_state->reg_sp = 0x20020000 + (cpu_id * PAGESIZE);
-    processor_state->entry_hi = 0;
-    processor_state->cause = 0;
-    processor_state->mie = 0;
-    INITCPU(cpu_id, processor_state);
+  state_t initial_states[NCPU - 1];
+  for (int i = 0; i < NCPU - 1; i++) {
+    STST(&initial_states[i]);
+    initial_states[i].status = MSTATUS_MPP_M;
+    initial_states[i].pc_epc = (memaddr)Scheduler;
+    initial_states[i].reg_sp = 0x20020000 + ((i + 1) * PAGESIZE);
+    initial_states[i].entry_hi = 0;
+    initial_states[i].cause = 0;
+    initial_states[i].mie = 0;
+    INITCPU(i + 1, &initial_states[i]);
   }
 
-  /* TODO: come mai non lo devo fare per il primo CPU? */
-  klog_print("finito inital.c");
   /* Call Scheduler */
   Scheduler();
 }

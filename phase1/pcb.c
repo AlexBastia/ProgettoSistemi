@@ -7,7 +7,7 @@ void* memcpy(void* dest, const void* src, unsigned int len) {
   char* d = dest;
   const char* s = src;
   while (len--) {
-    *d++ = *s++; //prima era *d--
+    *d++ = *s++;  // prima era *d--
   }
   return dest;
 }
@@ -51,15 +51,16 @@ pcb_t* allocPcb() {
   INIT_LIST_HEAD(&newPcb->p_child);
   INIT_LIST_HEAD(&newPcb->p_sib);
 
-  newPcb->p_time = (int)NULL;
+  newPcb->p_time = 0;
   newPcb->p_semAdd = NULL;
   newPcb->p_supportStruct = NULL;
-  newPcb->p_pid = ++next_pid;
+  newPcb->p_pid = next_pid++;
   newPcb->p_s.cause = 0;
   newPcb->p_s.entry_hi = 0;
   newPcb->p_s.status = 0;
   newPcb->p_s.pc_epc = 0;
-  
+  newPcb->p_s.mie = 0;
+
   for (int i = 0; i < STATE_GPR_LEN; i++) {
     newPcb->p_s.gpr[i] = 0;
   }
@@ -77,19 +78,16 @@ int emptyProcQ(struct list_head* head) { return list_empty(head); }
 
 // Insert the PCB pointed by p into the process queue
 // whose head pointer is pointed to by head.
-void insertProcQ(struct list_head* head, pcb_t* p) {
-  list_add_tail(&p->p_list, head);
-}
+void insertProcQ(struct list_head* head, pcb_t* p) { list_add_tail(&p->p_list, head); }
 
 // Return a pointer to the first PCB from the process
 // queue whose head is pointed to by head.
 // Do not remove this PCB from the process queue.
 // Return NULL if the process queue is empty.
 pcb_t* headProcQ(struct list_head* head) {
-  return container_of(
-      list_next(head), pcb_t,
-      p_list);  // list_next ritrona puntatore a list_head quindi utilizzo
-                // container_of per ottenere il puntatore a pcb_t
+  return container_of(list_next(head), pcb_t,
+                      p_list);  // list_next ritrona puntatore a list_head quindi utilizzo
+                                // container_of per ottenere il puntatore a pcb_t
 }
 
 // Remove the first (i.e. head) element from the process queue whose head
@@ -134,8 +132,7 @@ int emptyChild(pcb_t* p) { return list_empty(&p->p_child); }
 // Make the PCB pointed to by p a child of the PCB pointed to by prnt
 void insertChild(pcb_t* prnt, pcb_t* p) {
   list_add(&p->p_sib, &prnt->p_child);
-  p->p_parent =
-      prnt;  // imposto il padre del processo che ho appena messo come figlio
+  p->p_parent = prnt;  // imposto il padre del processo che ho appena messo come figlio
 }
 
 // Make the first child of the PCB pointed to by p no longer a child of p.
@@ -146,8 +143,7 @@ pcb_t* removeChild(pcb_t* p) {
     return NULL;
   }
 
-  struct list_head* child =
-      p->p_child.next;  // considero il next della sentinella come primo figlio
+  struct list_head* child = p->p_child.next;  // considero il next della sentinella come primo figlio
   list_del(child);
   pcb_t* removed_child = container_of(child, pcb_t, p_sib);
   removed_child->p_parent = NULL;  // visto  che non ha più un padre

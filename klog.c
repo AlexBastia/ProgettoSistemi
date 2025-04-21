@@ -54,8 +54,6 @@ void klog_print_dec(int num) {
   } else {
     int buff = num % 10;
     num /= 10;
-    klog_buffer[klog_line_index][klog_char_index] = digits[num % 10];
-    next_char();
     klog_buffer[klog_line_index][klog_char_index] = digits[buff];
     next_char();
   }

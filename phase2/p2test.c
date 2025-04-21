@@ -1,3 +1,4 @@
+
 /* File: $Id: p2test.c,v 1.1 1998/01/20 09:28:08 morsiani Exp morsiani $ */
 
 /*********************************P2TEST.C*******************************
@@ -264,7 +265,6 @@ void test() {
 
   SYSCALL(CREATEPROCESS, (int)&hp_p1state, PROCESS_PRIO_HIGH, (int)NULL);
 
-
   p4pid = SYSCALL(CREATEPROCESS, (int)&p4state, PROCESS_PRIO_LOW, (int)NULL); /* start p4     */
 
   pFiveSupport.sup_exceptContext[GENERALEXCEPT].stackPtr = (int)p5Stack;
@@ -286,8 +286,8 @@ void test() {
 
   print("p1 knows p5 ended\n");
 
-  SYSCALL(VERHOGEN, (int)&sem_blkp4, 0, 0); /* P(sem_blkp4)		*/
-  print("passeren p4");
+  SYSCALL(PASSEREN, (int)&sem_blkp4, 0, 0); /* P(sem_blkp4)		*/
+
   /* now for a more rigorous check of process termination */
   for (p8inc = 0; p8inc < 4; p8inc++) {
     /* Reset semaphores */
@@ -362,7 +362,7 @@ void p2() {
   p1p2synch = 1; /* p1 will check this */
 
   SYSCALL(PASSEREN, (int)&sem_endp2, 0, 0); /* P(sem_endp2)    unblocking P ! */
-  print("terminating p2\n");
+
   SYSCALL(TERMPROCESS, 0, 0, 0); /* terminate p2 */
 
   /* just did a SYS2, so should not get to this point */
@@ -412,7 +412,6 @@ void p3() {
 
   SYSCALL(VERHOGEN, (int)&sem_endp3, 0, 0); /* V(sem_endp3)        */
 
-  print("Terminating p3\n");
   SYSCALL(TERMPROCESS, 0, 0, 0); /* terminate p3    */
 
   /* just did a SYS2, so should not get to this point */
@@ -459,7 +458,7 @@ void p4() {
   print("p4 is OK\n");
 
   SYSCALL(VERHOGEN, (int)&sem_endp4, 0, 0); /* V(sem_endp4)          */
-  print("Terminating p4\n");
+
   SYSCALL(TERMPROCESS, 0, 0, 0); /* terminate p4      */
 
   /* just did a SYS2, so should not get to this point */
@@ -574,7 +573,7 @@ void p5b() {
   /* should cause a termination       */
   /* since this has already been      */
   /* done for PROGTRAPs               */
-  print("p5 is terminating\n");
+
   SYSCALL(TERMPROCESS, 0, 0, 0);
 
   /* should have terminated, so should not get to this point */
@@ -621,7 +620,7 @@ void p8root() {
   }
 
   SYSCALL(VERHOGEN, (int)&sem_endp8, 0, 0);
-  print("p8root is terminating\n");
+
   SYSCALL(TERMPROCESS, 0, 0, 0);
 }
 
@@ -700,7 +699,6 @@ void p10() {
     PANIC();
   }
 
-  print("p10 is ending p10 and p9\n");
   SYSCALL(TERMPROCESS, ppid, 0, 0);
 
   print("Error: p10 didn't die with its parent!\n");
@@ -713,8 +711,7 @@ void hp_p1() {
   for (int i = 0; i < 10; i++) {
     SYSCALL(CLOCKWAIT, 0, 0, 0);
   }
-  
-  print("hp_p1 is ending hp_p1 and hp_p2\n");
+
   SYSCALL(TERMPROCESS, 0, 0, 0);
   print("Error: hp_p1 didn't die!\n");
   PANIC();
