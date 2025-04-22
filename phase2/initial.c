@@ -19,7 +19,7 @@ int process_count;
 struct list_head ready_queue;
 pcb_PTR current_process[NCPU];
 int device_semaphores[SEMDEVLEN];
-volatile unsigned int global_lock = 1; /* 0 or 1 */
+volatile unsigned int global_lock = 1;
 cpu_t proc_time_started[NCPU];
 
 int main() {
@@ -32,6 +32,7 @@ int main() {
     passupvector->exception_stackPtr = (i == 0) ? KERNELSTACK : 0x20020000 + (i * PAGESIZE);
     passupvector++;
   }
+
   /* Initialize Level 2 data structures */
   initPcbs();
   initASL();
@@ -54,7 +55,7 @@ int main() {
 
   // Enable interrupts and kernel mode
   pcb->p_s.mie = MIE_ALL;
-  pcb->p_s.status = MSTATUS_MIE_MASK | MSTATUS_MPP_M;
+  pcb->p_s.status = MSTATUS_MPIE_MASK | MSTATUS_MPP_M;
 
   pcb->p_s.pc_epc = (memaddr)test;
   insertProcQ(&ready_queue, pcb);

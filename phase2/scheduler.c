@@ -8,10 +8,10 @@
 
 extern void klog_print(char*);
 extern void klog_print_dec(int);
-extern void klog_print_hex(int);
+
 void Scheduler() {
-  klog_print("Scheduler");
   ACQUIRE_LOCK(&global_lock);
+  klog_print("Scheduler");
   if (emptyProcQ(&ready_queue)) {
     if (process_count == 0) {
       /* No more processes */
@@ -28,8 +28,7 @@ void Scheduler() {
       setSTATUS(status);
 
       *((memaddr*)TPR) = 1;
-      klog_print("-end ");
-      WAIT();  // attesa di un interrupt
+      WAIT();
 
       // see Dott. Rovelli’s thesis for more details.
     }
@@ -39,17 +38,14 @@ void Scheduler() {
     current_process[getPRID()] = next;
     setTIMER(TIMESLICE);  // initialise PLT
 
-    *((memaddr*)TPR) = 0;  // TODO: se ogni processore deve avere una pririta' diversa, perche'
+    *((memaddr*)TPR) = 0;  // TODO: se ogni processore deve avere una priorita' diversa, perche'
                            // c'e' solo un indirizzo fisso? Nelle specifiche dice di fare
                            // questo ma giuro che non ha senso come cosa
 
-    STCK(proc_time_started[getPRID()]);  // set the time of the current process
-    RELEASE_LOCK(&global_lock);
+    STCK(proc_time_started[getPRID()]);  // set the start time of the current process
     klog_print("-run:");
     klog_print_dec(next->p_pid);
-    klog_print("-at:");
-    klog_print_hex(next->p_s.pc_epc);
-    klog_print("-end ");
+    RELEASE_LOCK(&global_lock);
     LDST(&(next->p_s));  // context switch al nuovo processo
   }
 }

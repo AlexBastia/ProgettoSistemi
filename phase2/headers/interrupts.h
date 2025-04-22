@@ -16,9 +16,4 @@ Manage the interrupt handling, calling the appropriate handler based on the inte
 @param current_state: the state of the processor when the interrupt occurred
 @param cause: the cause of the interrupt
 */
-void interruptHandler(state_t* current_state);
-int getintLineNo(int int_code);
-int getdevNo(int intlineNo);
-void pltHandler(state_t*);
-void timerHandler(state_t* current_state);
-void intHandler(int intlineNo, state_t* current_state);
+void interruptHandler(unsigned int, state_t*);
