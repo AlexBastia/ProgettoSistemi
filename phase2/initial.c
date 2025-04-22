@@ -5,7 +5,6 @@
 #include <uriscv/liburiscv.h>
 #include <uriscv/types.h>
 
-#include "../klog.c"
 #include "../phase1/headers/asl.h"
 #include "../phase1/headers/pcb.h"
 #include "headers/exceptions.h"
