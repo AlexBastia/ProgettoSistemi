@@ -12,8 +12,15 @@ extern void klog_print(char*);
 extern void klog_print_dec(int);
 extern void klog_print_hex(int);
 
+/*
+Function to handle syscall exceptions
+*/
 static void syscallHandler(state_t*);
+/*
+Function to handle every exception that is not a syscall nor an interrupt
+*/ 
 static void passUpordie(int exception, state_t*);
+/*Helper function to terminate the process' progeny*/
 static void terminateSubtree(pcb_t*);
 static void termProc(int);
 
@@ -354,7 +361,7 @@ static void termProc(int pid) {
   RELEASE_LOCK(&global_lock);  // release the lock
 }
 
-// this helper function is used to terminate the current process subtree
+
 static void terminateSubtree(pcb_t* process) {
   // Terminate all children
   while (!emptyChild(process)) {
@@ -381,16 +388,16 @@ static void terminateSubtree(pcb_t* process) {
   freePcb(process);
 }
 
-// Passato l'indirizzo del device register, restituisce un indice unico per ogni device
-// che identifica il semaforo corrispondente.
-// Distingue i sub-device nel caso dei register dei terminali.
+// Given the address of the device register, returns a unique index for each device
+// that identifies the corresponding semaphore.
+// Differentiates sub-devices in the case of terminal registers.
 int findDeviceIndex(memaddr* devRegAddress) {
   unsigned int offset = (unsigned int)(devRegAddress)-START_DEVREG;
   int i = -1;
   if (offset >= 32 * 0x10) {
-    i = 32 + ((offset - (32 * 0x10)) / 0x8);  // renzo davoli
+    i = 32 + ((offset - (32 * 0x10)) / 0x8);
   } else {
-    i = offset / 0x10;  // renzo davoli
+    i = offset / 0x10;  
   }
-  return i;  // renzo davoli
+  return i; 
 }

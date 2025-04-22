@@ -27,10 +27,8 @@ void Scheduler() {
       status |= MSTATUS_MIE_MASK;
       setSTATUS(status);
 
-      *((memaddr*)TPR) = 1;
+      *((memaddr*)TPR) = 1; //set highest priority
       WAIT();
-
-      // see Dott. Rovelli’s thesis for more details.
     }
   } else {
     /* Run process */
@@ -38,14 +36,12 @@ void Scheduler() {
     current_process[getPRID()] = next;
     setTIMER(TIMESLICE);  // initialise PLT
 
-    *((memaddr*)TPR) = 0;  // TODO: se ogni processore deve avere una priorita' diversa, perche'
-                           // c'e' solo un indirizzo fisso? Nelle specifiche dice di fare
-                           // questo ma giuro che non ha senso come cosa
+    *((memaddr*)TPR) = 0; 
 
     STCK(proc_time_started[getPRID()]);  // set the start time of the current process
     klog_print("-run:");
     klog_print_dec(next->p_pid);
     RELEASE_LOCK(&global_lock);
-    LDST(&(next->p_s));  // context switch al nuovo processo
+    LDST(&(next->p_s));  // context switch to the next process
   }
 }

@@ -13,11 +13,29 @@ extern void klog_print(char *);
 extern void klog_print_dec(int);
 extern void klog_print_hex(int);
 
+/*
+gets device type (int. line) from the exception code
+*/
 static int getintLineNo(int);
+/*
+find the highest priority device causing the interrupt using the bitmap
+*/
 static int getdevNo(int);
+/*
+manages plt interrupts
+*/
 static void pltHandler(state_t *);
+/*
+manages pseudoclock interrupts
+*/
 static void timerHandler(state_t *);
+/*
+manages non-timer interrupts
+*/
 static void intHandler(int, state_t *);
+/*
+unblocks all PCBs waiting for a Pseudo-clock tick
+*/
 static void unblockClockPCBs();
 
 void interruptHandler(unsigned int int_code, state_t *current_state) {
@@ -38,7 +56,6 @@ void interruptHandler(unsigned int int_code, state_t *current_state) {
   }
 }
 
-// manages plt interrupts
 static void pltHandler(state_t *current_state) {
   ACQUIRE_LOCK(&global_lock);
   klog_print("-PLT");
@@ -52,7 +69,6 @@ static void pltHandler(state_t *current_state) {
   Scheduler();
 }
 
-// manages pseudoclock interrupts
 void timerHandler(state_t *current_state) {
   klog_print("-timer");
   LDIT(PSECOND);       // Acknowledge the interrupt by loading the Interval Timer with a new value: 100 milliseconds
@@ -121,7 +137,6 @@ void intHandler(int intlineNo, state_t *current_state) {
 
 /*---------Helper Functions--------*/
 
-// gets device type (int. line) from the exception code
 static int getintLineNo(int int_code) {
   switch (int_code) {
     case IL_CPUTIMER:
@@ -143,7 +158,6 @@ static int getintLineNo(int int_code) {
   }
 }
 
-// find the highest priority device causing the interrupt using the bitmap
 int getdevNo(int intlineNo) {
   unsigned int bitmapValue = *((unsigned int *)(INTERRUPT_BITMAP_ADDRESS + (intlineNo - 3) * 4));  // go to the corret oword of the bitmap
   if (bitmapValue & DEV0ON) return 0;
