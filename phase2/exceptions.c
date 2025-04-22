@@ -8,17 +8,12 @@
 #include "headers/interrupts.h"
 #include "headers/scheduler.h"
 
-extern void klog_print(char*);
-extern void klog_print_dec(int);
-extern void klog_print_hex(int);
-
 static void syscallHandler(state_t*);
 static void passUpordie(int exception, state_t*);
 static void terminateSubtree(pcb_t*);
 static void termProc(int);
 
 void exceptionHandler() {
-  klog_print("Exception");
   unsigned int cpu_id = getPRID();                           // get the cpu id of the current process
   state_t* current_state = GET_EXCEPTION_STATE_PTR(cpu_id);  // get the current state of the process
 
@@ -53,13 +48,11 @@ static void syscallHandler(state_t* state) {
   switch (syscall_code) {
     case CREATEPROCESS:            // this call creates a new process
       ACQUIRE_LOCK(&global_lock);  // acquire the lock to avoid race conditions
-      klog_print("-createproc");
 
       pcb_t* newPCB = allocPcb();  // allocate a new PCB
 
       // if the PCB is NULL, the allocation failed for lack of resources
       if (newPCB == NULL) {
-        klog_print("-nomorePCB!");
         RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // return -1 to signal the error
         state->pc_epc += 4;
@@ -69,34 +62,26 @@ static void syscallHandler(state_t* state) {
       newPCB->p_s = *(state_t*)state->reg_a1;  // copy the state given in a1 register to the new PCB
       newPCB->p_supportStruct = (support_t*)state->reg_a3;
       pcb_t* parent = current_process[getPRID()];  // set the current process as the parent of the new process based on cpu number
-      klog_print("-parentID:");
-      klog_print_dec(parent->p_pid);
-      klog_print("-procID:");
-      klog_print_dec(newPCB->p_pid);
       if (parent != NULL) {
         insertChild(parent, newPCB);
       }
       insertProcQ(&ready_queue, newPCB);
       process_count++;
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       state->reg_a0 = newPCB->p_pid;  // return the pid of the new process
       state->pc_epc += 4;             // increment the program counter
       LDST(state);
       break;
 
-    case TERMPROCESS:
-      klog_print("-termproc");
+    case TERMPROCESS:;
       int pid = state->reg_a1;  // get the pid of the process to be terminated
       termProc(pid);
       ACQUIRE_LOCK(&global_lock);
       if (current_process[getPRID()] != NULL) {
-        klog_print("-continue-end");
         RELEASE_LOCK(&global_lock);
         state->pc_epc += 4;
         LDST(state);
       } else {
-        klog_print("-curr-del-end ");
         RELEASE_LOCK(&global_lock);
         Scheduler();  // call the scheduler to select the next process
       }
@@ -104,7 +89,6 @@ static void syscallHandler(state_t* state) {
 
     case PASSEREN:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-P");
       int* semAdd1 = (int*)state->reg_a1;  // get the semaphore address
 
       (*semAdd1)--;        // decrement the semaphore value
@@ -117,7 +101,6 @@ static void syscallHandler(state_t* state) {
         current_process[getPRID()] = NULL;            // set the current process to NULL
         STCK(end_time);
         current->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
-        klog_print("-blocked-end ");
         RELEASE_LOCK(&global_lock);
         Scheduler();
         break;
@@ -126,11 +109,9 @@ static void syscallHandler(state_t* state) {
         pcb_t* unblocked = removeBlocked(semAdd1);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
-          klog_print("-unblocked");
         }
       }
 
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       state->pc_epc += 4;
       LDST(state);
@@ -138,7 +119,6 @@ static void syscallHandler(state_t* state) {
 
     case VERHOGEN:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-V");
       int* semAdd2 = (int*)state->reg_a1;  // get the semaphore address
 
       (*semAdd2)++;
@@ -151,7 +131,6 @@ static void syscallHandler(state_t* state) {
         current_process[getPRID()] = NULL;
         STCK(end_time);
         current->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
-        klog_print("-blocked-end ");
         RELEASE_LOCK(&global_lock);
         Scheduler();
 
@@ -161,10 +140,8 @@ static void syscallHandler(state_t* state) {
         pcb_t* unblocked = removeBlocked(semAdd2);  // remove the first process from the blocked list of the semaphore
         if (unblocked != NULL) {
           insertProcQ(&ready_queue, unblocked);
-          klog_print("-unblocked");
         }
       }
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       state->pc_epc += 4;  // increment the program counter
       LDST(state);
@@ -172,7 +149,6 @@ static void syscallHandler(state_t* state) {
 
     case DOIO:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-doio");
       memaddr* commandAddress = (memaddr*)state->reg_a1;  // get the command address
       int commandValue = state->reg_a2;                   // get the command value
 
@@ -207,7 +183,6 @@ static void syscallHandler(state_t* state) {
 
       STCK(end_time);
       current->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
 
       *commandAddress = commandValue;
@@ -216,7 +191,6 @@ static void syscallHandler(state_t* state) {
 
     case GETTIME:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-gettime");
       pcb_t* proc = current_process[getPRID()];  // get the current process
 
       // Update accumolated time and reset time started
@@ -226,14 +200,12 @@ static void syscallHandler(state_t* state) {
 
       state->reg_a0 = proc->p_time;  // return the time of the current process
       state->pc_epc += 4;            // increment the program counter
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       LDST(state);
       break;
 
     case CLOCKWAIT:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-clockwait");
       pcb_t* cur = current_process[getPRID()];
 
       if (insertBlocked(&device_semaphores[PSEUDOCLOCK], cur) == TRUE) {
@@ -246,25 +218,21 @@ static void syscallHandler(state_t* state) {
       current_process[getPRID()] = NULL;
       STCK(end_time);
       cur->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       Scheduler();  // pass the control to the scheduler
       break;
 
     case GETSUPPORTPTR:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-getsupptr");
       pcb_t* current1 = current_process[getPRID()];        // get the current process
       state->reg_a0 = (memaddr)current1->p_supportStruct;  // return the support struct of the current process
       state->pc_epc += 4;                                  // increment the program counter
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       LDST(state);  // load the state of the current process
       break;
 
     case GETPROCESSID:
       ACQUIRE_LOCK(&global_lock);
-      klog_print("-getpid");
       pcb_t* current3 = current_process[getPRID()];  // get the current process
       int isGetParent = state->reg_a1;
 
@@ -277,13 +245,11 @@ static void syscallHandler(state_t* state) {
       }
 
       state->pc_epc += 4;
-      klog_print("-end ");
       RELEASE_LOCK(&global_lock);
       LDST(state);  // load the state of the current process
       break;
 
     default:
-      klog_print("!Nonexistent Syscall Nucleus service!");
       PANIC();
       break;
   }
@@ -295,25 +261,22 @@ static void passUpordie(int exception, state_t* exc_state) {
   pcb_t* current = current_process[cpu_id];
 
   if (current == NULL) {
-    klog_print("-nocurrproc-end");
     RELEASE_LOCK(&global_lock);
     Scheduler();
   }
 
-  // Se il processo non ha supportStruct → termina
+  // If the process doesn't have a supportStruct → terminate
   if (current->p_supportStruct == NULL) {
-    klog_print("-nosuppstruct-end");
     RELEASE_LOCK(&global_lock);
-    termProc(0);  // termina processo corrente
+    termProc(0);  // terminate current process
     Scheduler();
   }
 
-  // PASS UP: copia lo stato dell'eccezione
+  // PASS UP: copies the state of the exception
   support_t* sup = current->p_supportStruct;
   sup->sup_exceptState[exception] = *exc_state;
   context_t* ctx = &sup->sup_exceptContext[exception];
 
-  klog_print("-pud-end ");
   RELEASE_LOCK(&global_lock);
 
   LDCXT(ctx->stackPtr, ctx->status, ctx->pc);  // load the context
@@ -342,7 +305,6 @@ static void termProc(int pid) {
       tbt = getProc(pid);
       if (tbt == NULL) {
         /* If the process wasn't found */
-        klog_print("!running on another cpu!");
         RELEASE_LOCK(&global_lock);
         return;
       };
@@ -368,22 +330,18 @@ static void terminateSubtree(pcb_t* process) {
     (*process->p_semAdd)++;
   } else if (outProcQ(&ready_queue, process) == NULL) {  // Process on ready queue
     // Process running (or doesn't exist?)
-    klog_print("!process is running on another cpu!");
     return;
   };
   process_count--;
   if (process->p_parent != NULL) {
     outChild(process);  // remove the process from the parent's children list
   }
-  klog_print("-term pid:");
-  klog_print_dec(process->p_pid);
   if (process == current_process[getPRID()]) current_process[getPRID()] = NULL;  // set the current process to NULL
   freePcb(process);
 }
 
-// Passato l'indirizzo del device register, restituisce un indice unico per ogni device
-// che identifica il semaforo corrispondente.
-// Distingue i sub-device nel caso dei register dei terminali.
+// Given the (sub)device register base address (terminal registers are considered two separate sub-registers
+// with different base addresses), returns an ID that identifies the associated semaphore
 int findDeviceIndex(memaddr* devRegAddress) {
   unsigned int offset = (unsigned int)(devRegAddress)-START_DEVREG;
   int i = -1;

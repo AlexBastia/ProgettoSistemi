@@ -9,10 +9,6 @@
 #define TERMSTATMASK 0xFF
 #define RECVD 5
 
-extern void klog_print(char *);
-extern void klog_print_dec(int);
-extern void klog_print_hex(int);
-
 static int getintLineNo(int);
 static int getdevNo(int);
 static void pltHandler(state_t *);
@@ -41,20 +37,17 @@ void interruptHandler(unsigned int int_code, state_t *current_state) {
 // manages plt interrupts
 static void pltHandler(state_t *current_state) {
   ACQUIRE_LOCK(&global_lock);
-  klog_print("-PLT");
   pcb_t *cur_proc = current_process[getPRID()];
   setTIMER(TIMESLICE);                  // Acknowledge the PLT interrupt by loading the timer with a new value using setTIMER.
   cur_proc->p_s = *current_state;       // Copy the processor state of the current CPU at the time of the exception into the Current Process’s PCB (p_s) of the current CPU
   insertProcQ(&ready_queue, cur_proc);  // Place the Current Process on the Ready Queue;
   current_process[getPRID()] = NULL;
-  klog_print("-end ");
   RELEASE_LOCK(&global_lock);
   Scheduler();
 }
 
 // manages pseudoclock interrupts
 void timerHandler(state_t *current_state) {
-  klog_print("-timer");
   LDIT(PSECOND);       // Acknowledge the interrupt by loading the Interval Timer with a new value: 100 milliseconds
   unblockClockPCBs();  // Unblock all PCBs blocked waiting a Pseudo-clock tick.
 
@@ -64,17 +57,14 @@ void timerHandler(state_t *current_state) {
 
   // Return control to the Current Process of the current CPU if exists
   if (curr != NULL) {
-    klog_print("-loadingCurr ");
     LDST(current_state);
   }
 
   // If there is no Current Process to return control to, call the Scheduler
-  klog_print("-end ");
   Scheduler();
 }
 
 void intHandler(int intlineNo, state_t *current_state) {
-  klog_print("-int");
   int devNo = getdevNo(intlineNo);
   memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
   unsigned int status = 0;
@@ -109,7 +99,6 @@ void intHandler(int intlineNo, state_t *current_state) {
     unblocked->p_s.reg_a0 = status;
     insertProcQ(&ready_queue, unblocked);
   }
-  klog_print("-end ");
   if (current_process[getPRID()] != NULL) {
     RELEASE_LOCK(&global_lock);
     LDST(current_state);
