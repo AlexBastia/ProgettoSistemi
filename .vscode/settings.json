@@ -1,11 +1,19 @@
 {
     "files.associations": {
         "liburiscv.h": "c",
-        "types.h": "c",
+        "syssupport.h": "c",
         "asl.h": "c",
-        "initial.h": "c",
-        "arch.h": "c",
+        "pcb.h": "c",
+        "const.h": "c",
+        "types.h": "c",
         "cpu.h": "c",
-        "listx.h": "c"
+        "*.e": "c",
+        "listx.h": "c",
+        "exceptions.h": "c",
+        "initial.h": "c",
+        "interrupts.h": "c",
+        "scheduler.h": "c",
+        "csr.h": "c",
+        "arch.h": "c"
     }
 }
