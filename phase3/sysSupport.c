@@ -20,24 +20,21 @@ void generalExceptionSupportHandler() {
 }
 
 /*
-    7.3 WriteTerminal(SYS4)
-When requested, this service causes the requesting U-proc to be suspended until a line of output
-(string of characters) has been transmitted to the terminal device associated with the U-proc.
-Once the process resumes, the number of characters actually transmitted is returned in a0.
-The SYS4 service is requested by the calling U-proc by placing the value 4 in a0, the virtual
-address of the first character of the string to be transmitted in a1, the length of this string in a2, and
-then executing a SYSCALL instruction. Once the process resumes, the number of characters actually
-transmitted is returned in a0 if the write was successful. If the operation ends with a status other
-than "Device Ready" (1), the negative of the device's status value is returned in a0.
-It is an error to write to a terminal device from an address outside of the requesting U-proc's logical
-address space, request a SYS4 with a length less than 0, or a length greater than 128. Any of these
-errors should result in the U-proc being terminated(SYS2).
-The following C code can be used to request a SYS4:
-int retValue = SYSCALL(WRITETERMINAL, char*virtAddr, int len, 0);
-Where the mnemonic constant WRITETERMINAL has the value of 4.
+7.4
+ReadTerminal (SYS5)
+When requested, this service causes the requesting U-proc to be suspended until a line of input (string
+of characters) has been transmitted from the terminal device associated with the U-proc.
+The SYS5 service is requested by the calling U-proc by placing the value 5 in a0, the virtual
+address of a string buffer where the data read should be placed in a1, and then executing a SYSCALL
+instruction. Once the process resumes, the number of characters actually transmitted is returned in
+a0 if the read was successful. If the operation ends with a status other than “Character Received”
+(5), the negative of the device’s status value is returned in a0.
+Attempting to read from a terminal device to an address outside of the requesting U-proc’s logical
+address space is an error and should result in the U-proc being terminated (SYS2).
+The following C code can be used to request a SYS5:
+int retValue = SYSCALL(READTERMINAL, char *virtAddr, 0, 0);
+Where the mnemonic constant READTERMINAL has the value of 5
 */
-
-
 
 static void syscallSupHandler(state_t* exp_state){
     int n_syscall = exp_state->reg_a0;  
@@ -56,8 +53,54 @@ static void syscallSupHandler(state_t* exp_state){
             SYS4(exp_state);
             break;
         }
-        
+        case READTERMINAL: { //! nonostante la consegna impone di utilizzare la costante READTERMINAL (5), questa è assente in headers/const.h oid ocrop, valutare se usare 5 o definire la costante READTERMINAL
+            SYS5(exp_state);
+            break;
+        }
+        default: {
+            // if the syscall is not recognized, pass up or die
+            //TODO
+        }
     }
+}
+
+
+static void SYS5(state_t* exp_state){
+    // a2 contains the length of the string to be written
+    int len = exp_state->reg_a2;
+    // a1 contains the virtual address of the string to be written
+    char* virtAddr = exp_state->reg_a1;
+
+        // check if the virtual address is valid
+    if (virtAddr == NULL || (unsigned int)virtAddr > USERSTACKTOP || len < 0 || len > MAXSTRLENG) {
+        // ? la consegna è utilizare SYS2 per terminare il processo, ma capire se intende letteralmente oppure chiamare un trap per terminare il processo (stesso servizio di SYS2). GPT mi dice che l'archietettura corretta è di terminare il processo chiamando un trap
+        SYS2();
+        return;
+    }
+
+        // Ottieni ASID e indice del dispositivo
+    unsigned int entryHi_value = exp_state->entry_hi;
+    unsigned int asid = (entryHi_value >> ASIDSHIFT) & 0x3F;
+    unsigned int device_index = asid - 1;
+
+    // Ottieni indirizzo del registro del dispositivo terminale
+    dtpreg_t* terminal_device = (dtpreg_t*) DEV_REG_ADDR(IL_TERMINAL, device_index);
+
+    // Imposta i campi data0 e data1 del registro del dispositivo
+    terminal_device->data0 = (memaddr) virtAddr;
+    terminal_device->data1 = len;
+
+    // Prepara comando per DOIO (leggere dal terminale)
+    unsigned int command_address = (unsigned int) &(terminal_device->command);
+    unsigned int command_value = RECEIVECHAR;
+
+    // Esegue operazione I/O
+    SYSCALL(DOIO, command_address, command_value, 0);
+
+    // Riprendi esecuzione del processo
+    LDST(exp_state);
+
+    
 }
 
 
@@ -126,4 +169,4 @@ static void SYS4(state_t* exp_state) {
     SYSCALL(DOIO, command_address, command_value, 0);
 
     LDST(exp_state);
-}   
+}
