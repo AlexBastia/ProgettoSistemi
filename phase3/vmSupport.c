@@ -10,7 +10,7 @@ volatile unsigned int swap_pool_sem = 1;
 swap_t swap_pool[POOLSIZE];
 /*Important: Using the μRISC-V Machine Configuration Panel make sure that there is sufficient
 “installed” RAM for the OS code, the Swap Pool and stack page for test (e.g. 512 frames).*/
-#define SWAPPOOLSTART =  RAMSTART + (64 * PAGESIZE) + (NCPU * PAGESIZE);
+#define SWAPPOOLSTART RAMSTART + (64 * PAGESIZE) + (NCPU * PAGESIZE);
 /* Macro per aprire una critical section */
 #define CRITICAL_START() unsigned int _cs_status = getSTATUS(); setSTATUS(_cs_status & DISABLEINTS)
 
@@ -49,9 +49,9 @@ int getNextSwapFrame() {
 }
 
    /* Funzione generica per leggere o scrivere un frame sulla flash */
-int read_or_write_flash(int frame_i, int vpn, int asid, int op) {
+void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
     unsigned int frame_phys = FRAMEPOOLSTART + (frame_i * PAGESIZE);
-    volatile dtpreg_t *flash = DEV_REG_ADDR(IL_FLASH, asid - 1);
+    volatile dtpreg_t *flash = (dtpreg_t*) DEV_REG_ADDR(IL_FLASH, asid - 1);
     flash->data0 = frame_phys;
     unsigned int cmd = ((unsigned int)vpn << 8) | op;
     int io = SYSCALL(DOIO, flash->command, cmd, 0);
@@ -71,7 +71,7 @@ void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte) {
 
 
 //pdf 4.2
-int pagefaultHandler(){
+int pager(){
     //punto1
     support_t* sup = SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     //punto2
