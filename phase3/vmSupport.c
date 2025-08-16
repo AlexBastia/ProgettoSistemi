@@ -71,7 +71,7 @@ void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte) {
 
 
 //pdf 4.2
-int pager(){
+void pager(){
     //punto1
     support_t* sup = SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     //punto2

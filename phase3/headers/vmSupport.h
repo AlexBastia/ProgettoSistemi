@@ -13,4 +13,10 @@
 #include "initProc.h"
 
 
+
+void read_or_write_flash(int frame_i, int vpn, int asid, int op);
+
+void pager();
+
+
 #endif

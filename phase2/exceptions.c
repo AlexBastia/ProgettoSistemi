@@ -364,3 +364,18 @@ int findDeviceIndex(memaddr* devRegAddress) {
   }
   return i; 
 }
+
+
+/* TLB-Refill Handler */
+/* One can place debug calls here, but not calls to print */
+void uTLB_RefillHandler() {
+    unsigned int prid = getPRID();
+    state_t* current_state = GET_EXCEPTION_STATE_PTR(prid);
+    unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);  // numero di pagina richiesto (macro in usr/include/uriscv/cpu.h)
+    pcb_t* current = current_process[prid];
+    pteEntry_t* entry = &current->p_supportStruct->sup_privatePgTbl[p];
+    setENTRYHI(entry->pte_entryHI);
+    setENTRYLO(entry->pte_entryLO);
+    TLBWR();
+    LDST(GET_EXCEPTION_STATE_PTR(prid));
+}
