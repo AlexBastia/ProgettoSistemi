@@ -16,6 +16,8 @@ swap_t swap_pool[POOLSIZE];
 
 /* Macro per chiudere una critical section */
 #define CRITICAL_END() setSTATUS(_cs_status)
+static int nextFrame = 0;      // variabile statica per FIFO
+
 
 
 
@@ -38,15 +40,24 @@ void updateTLB_v2(pteEntry_t* p) {
     }
 }
 
-int isSwapFrameOccupied(int frame) {
-    return swap_pool[frame].sw_asid != 0; // 0 indica frame libero
+int isSwapFrameFree(int frame) {
+    return swap_pool[frame].sw_asid == 0; // 0 indica frame libero
 }
-int getNextSwapFrame() {
+int getFifoFrame() {
     static int nextFrame = 0;      // variabile statica per FIFO
     int frame = nextFrame;
     nextFrame = (nextFrame + 1) % POOLSIZE;  // round-robin
     return frame;
 }
+
+//la versione ottimizzata, come da punto 10 del pdf
+int getSwapFrame() {
+    for(int i = 0; i<POOLSIZE; i++){
+        if(isSwapFrameFree(i)) return i;
+    }
+    return getFifoFrame();
+}
+
 
    /* Funzione generica per leggere o scrivere un frame sulla flash */
 void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
@@ -100,11 +111,11 @@ void pager(){
         }
     }
     //punto 7
-    int victim = getNextSwapFrame();
+    int victim = getSwapFrame();
     unsigned int frame_phys = FRAMEPOOLSTART + (victim * PAGESIZE);
 
     //punto 9
-    if(isSwapFrameOccupied(victim)){ //la funzione e` il punto 8
+    if(!isSwapFrameFree(victim)){ //la funzione e` il punto 8
         int          x_asid = swap_pool[victim].sw_asid;
         unsigned int k_vpn  = swap_pool[victim].sw_pageNo;
         pteEntry_t*  k_pte  = swap_pool[victim].sw_pte;
