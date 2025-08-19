@@ -1,14 +1,11 @@
+#include "headers/initProc.h"
+
 #include <uriscv/liburiscv.h>
 #include <uriscv/types.h>
 
-#include "../headers/types.h"
-
-#define SHARABLE_DEV_NUM 48
-#define UPROC_NUM 8
-
-swap_t swap_pool_table[2 * UPROCMAX];
+swap_t swap_pool_table[POOLSIZE];
 int swap_pool_sem;
-int sharable_dev_sem[SHARABLE_DEV_NUM];
+int sharable_dev_sem[NSUPPSEM];
 int masterSemaphore;
 
 void test() {
@@ -25,17 +22,15 @@ void test() {
   swap_pool_sem = 1;
 
   // Device mutex semaphores (Note: these are not actually needed for this phase, so double check they actually work!)
-  // Domande:
-  // 1: Non so quanti device sono "potentialy sharable" quindi li metto tutti, probabilmente da cambiare
-  // -> ci sono un terminale (due sub-device), una stampante e un flash device per U-proc, quindi forse 4*8=32 solo che potrebbe creare casini per l'indicizzazione nella parte prima (forse)
-  for (int i = 0; i < SHARABLE_DEV_NUM; i++) sharable_dev_sem[i] = 1;
+  for (int i = 0; i < NSUPPSEM; i++) sharable_dev_sem[i] = 1;
 
   /* Initialize and launch U-procs */
   // Set initial processor state
   // Domande:
   // 1: Che valore devono avere status e mie per essere in modalita' utente con interrupt e PLT attivati?
-  state_t initial_states[UPROC_NUM];
-  for (int i = 0; i < UPROC_NUM; i++) {
+  // 2: Devo inizializzare sempre il massimo numero di processi? Poi quanti ne devo eseguire?
+  state_t initial_states[UPROCMAX];
+  for (int i = 0; i < UPROCMAX; i++) {
     initial_states[i].pc_epc = UPROCSTARTADDR;
     initial_states[i].reg_sp = USERSTACKTOP;
     initial_states[i].status = MSTATUS_MPIE_MASK;
@@ -44,8 +39,8 @@ void test() {
   }
 
   // Set support structure
-  support_t supports[UPROC_NUM];
-  for (int i = 0; i < UPROC_NUM; i++) {
+  support_t supports[UPROCMAX];
+  for (int i = 0; i < UPROCMAX; i++) {
     supports[i].sup_asid = i + 1;
     // supports[i].sup_exceptContext[PGFAULTEXCEPT].pc = TLB_Handler; TODO: usare handler nostri
     // supports[i].sup_exceptContext[GENERALEXCEPT].pc = GenExcept_Handler
