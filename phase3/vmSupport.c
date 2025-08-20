@@ -1,13 +1,6 @@
 #include "headers/vmSupport.h"
 
-/*
-To access the Swap Pool table, a process must first perform a NSYS3 (P) operation on this
-semaphore. When access to the Swap Pool table is concluded, a process will then perform a NSYS4
-(V) operation on this semaphore. Since this semaphore is used for mutual exclusion, it should be
-initialized to one*/
-volatile unsigned int swap_pool_sem = 1;
-//idk questo mi era necessario esistesse gia` ora, poi inizializzalo
-swap_t swap_pool[POOLSIZE];
+
 /*Important: Using the μRISC-V Machine Configuration Panel make sure that there is sufficient
 “installed” RAM for the OS code, the Swap Pool and stack page for test (e.g. 512 frames).*/
 #define SWAPPOOLSTART RAMSTART + (64 * PAGESIZE) + (NCPU * PAGESIZE);
@@ -41,7 +34,7 @@ void updateTLB_v2(pteEntry_t* p) {
 }
 
 int isSwapFrameFree(int frame) {
-    return swap_pool[frame].sw_asid == 0; // 0 indica frame libero
+    return swap_pool_table[frame].sw_asid == 0; // 0 indica frame libero
 }
 int getFifoFrame() {
     static int nextFrame = 0;      // variabile statica per FIFO
@@ -67,14 +60,14 @@ void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
     unsigned int cmd = ((unsigned int)vpn << 8) | op;
     int io = SYSCALL(DOIO, flash->command, cmd, 0);
     if (io != OK) {
-        TRAP;
+        trapHandler();
     }
 }
 /* Aggiorna la swap pool dopo aver letto/scritto un frame */
 void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte) {
-    swap_pool[frame_i].sw_pageNo = vpn;   /* pagina logica che ora occupa il frame */
-    swap_pool[frame_i].sw_asid   = asid;  /* ASID del processo proprietario */
-    swap_pool[frame_i].sw_pte    = pte;   /* puntatore alla page table entry */
+    swap_pool_table[frame_i].sw_pageNo = vpn;   /* pagina logica che ora occupa il frame */
+    swap_pool_table[frame_i].sw_asid   = asid;  /* ASID del processo proprietario */
+    swap_pool_table[frame_i].sw_pte    = pte;   /* puntatore alla page table entry */
 }
 
 
@@ -90,7 +83,7 @@ void pager(){
     unsigned int cause = current_state->cause;
     //punto3
     if((cause&CAUSE_EXCCODE_MASK) == EXC_MOD){
-        TRAP; //TODO i guess
+        trapHandler(); //TODO i guess
     };
     //punto4
     SYSCALL(PASSEREN, &swap_pool_sem, 0, 0);
@@ -101,7 +94,7 @@ void pager(){
 
     //punto6
     for (int i = 0; i < POOLSIZE; i++){
-        if(swap_pool[i].sw_asid==asid && swap_pool[i].sw_pageNo == p){
+        if(swap_pool_table[i].sw_asid==asid && swap_pool_table[i].sw_pageNo == p){
             CRITICAL_START();
             updateTLB(pte_p);
             CRITICAL_END();
@@ -116,9 +109,9 @@ void pager(){
 
     //punto 9
     if(!isSwapFrameFree(victim)){ //la funzione e` il punto 8
-        int          x_asid = swap_pool[victim].sw_asid;
-        unsigned int k_vpn  = swap_pool[victim].sw_pageNo;
-        pteEntry_t*  k_pte  = swap_pool[victim].sw_pte;
+        int          x_asid = swap_pool_table[victim].sw_asid;
+        unsigned int k_vpn  = swap_pool_table[victim].sw_pageNo;
+        pteEntry_t*  k_pte  = swap_pool_table[victim].sw_pte;
         CRITICAL_START();
         //9a
         k_pte->pte_entryLO &= ~ENTRYLO_VALID; //not valid page

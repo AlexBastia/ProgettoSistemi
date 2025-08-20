@@ -12,7 +12,7 @@
 #include "../../phase2/headers/exceptions.h"
 #include "initProc.h"
 
-
+void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte);
 
 void read_or_write_flash(int frame_i, int vpn, int asid, int op);
 
