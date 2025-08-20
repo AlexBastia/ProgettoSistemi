@@ -11,6 +11,14 @@ void Scheduler() {
   if (emptyProcQ(&ready_queue)) {
     if (process_count == 0) {
       /* No more processes */
+
+      // BIOS expects that the interrupts arrive at the processor that calls HALT
+      unsigned int* irt_entry = (unsigned int*)IRT_START;
+      for (int i = 0; i < IRT_NUM_ENTRY; i++) {
+        *irt_entry = getPRID();
+        irt_entry++;
+      }
+
       RELEASE_LOCK(&global_lock);
       HALT();
     } else {
@@ -21,7 +29,7 @@ void Scheduler() {
       status |= MSTATUS_MIE_MASK;
       setSTATUS(status);
 
-      *((memaddr*)TPR) = 1; //set highest priority
+      *((memaddr*)TPR) = 1;  // set highest priority
       WAIT();
     }
   } else {
