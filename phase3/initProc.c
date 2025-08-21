@@ -1,11 +1,12 @@
 #include "headers/initProc.h"
 
+#include <time.h>
 #include <uriscv/liburiscv.h>
 #include <uriscv/types.h>
 
 swap_t swap_pool_table[POOLSIZE];
-int swap_pool_sem;
-int sharable_dev_sem[NSUPPSEM];
+supSem swap_pool_sem;
+supSem sharable_dev_sem[NSUPPSEM];
 int masterSemaphore;
 
 void test() {
@@ -19,10 +20,10 @@ void test() {
   }
 
   // Swap Pool semaphore
-  swap_pool_sem = 1;
+  swap_pool_sem.value = 1;
 
   // Device mutex semaphores (Note: these are not actually needed for this phase, so double check they actually work!)
-  for (int i = 0; i < NSUPPSEM; i++) sharable_dev_sem[i] = 1;
+  for (int i = 0; i < NSUPPSEM; i++) sharable_dev_sem[i].value = 1;
 
   /* Initialize and launch U-procs */
   // Set initial processor state
@@ -58,7 +59,30 @@ void test() {
 
   /* Termination */
   for (int i = 0; i < UPROC_NUM; i++) {
-    SYSCALL(VERHOGEN, (int)&masterSemaphore, 0, 0);  // Each Uproc must call NSYS4 on the masterSemaphore before terminating
+    SYSCALL(PASSEREN, (int)&masterSemaphore, 0, 0);  // Each Uproc must call NSYS4 on the masterSemaphore before terminating
   }
   SYSCALL(TERMPROCESS, 0, 0, 0);  // HALT
+}
+
+void getMutex(supSem* sem, int pid) {
+  // wait for the semaphore to be free
+  SYSCALL(PASSEREN, (int)&sem->value, 0, 0);
+  // change mutex holder
+  sem->holder_pid = pid;
+  // Note: ci potrebbero essere problemi se non e' atomica sta roba??
+}
+
+void releaseMutex(supSem* sem, int pid) {
+  // check if pid is the mutex holder
+  if (pid != sem->holder_pid) return;
+  // release mutex
+  SYSCALL(VERHOGEN, (int)&sem->value, 0, 0);
+  // change mutex holder to -1
+  sem->holder_pid = -1;
+}
+
+void releaseAllMutex(int pid) {
+  // for each semaphore call release mutex
+  for (int i = 0; i < NSUPPSEM; i++) releaseMutex(&sharable_dev_sem, pid);
+  releaseMutex(&swap_pool_sem, pid);
 }

@@ -18,7 +18,7 @@ Function to handle syscall exceptions
 static void syscallHandler(state_t*);
 /*
 Function to handle every exception that is not a syscall nor an interrupt
-*/ 
+*/
 static void passUpordie(int exception, state_t*);
 /*Helper function to terminate the process' progeny*/
 static void terminateSubtree(pcb_t*);
@@ -327,7 +327,6 @@ static void termProc(int pid) {
   RELEASE_LOCK(&global_lock);  // release the lock
 }
 
-
 static void terminateSubtree(pcb_t* process) {
   // Terminate all children
   while (!emptyChild(process)) {
@@ -360,22 +359,21 @@ int findDeviceIndex(memaddr* devRegAddress) {
   if (offset >= 32 * 0x10) {
     i = 32 + ((offset - (32 * 0x10)) / 0x8);
   } else {
-    i = offset / 0x10;  
+    i = offset / 0x10;
   }
-  return i; 
+  return i;
 }
-
 
 /* TLB-Refill Handler */
 /* One can place debug calls here, but not calls to print */
 void uTLB_RefillHandler() {
-    unsigned int prid = getPRID();
-    state_t* current_state = GET_EXCEPTION_STATE_PTR(prid);
-    unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);  // numero di pagina richiesto (macro in usr/include/uriscv/cpu.h)
-    pcb_t* current = current_process[prid];
-    pteEntry_t* entry = &current->p_supportStruct->sup_privatePgTbl[p];
-    setENTRYHI(entry->pte_entryHI);
-    setENTRYLO(entry->pte_entryLO);
-    TLBWR();
-    LDST(GET_EXCEPTION_STATE_PTR(prid));
+  unsigned int prid = getPRID();
+  state_t* current_state = GET_EXCEPTION_STATE_PTR(prid);
+  unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);  // numero di pagina richiesto (macro in usr/include/uriscv/cpu.h)
+  pcb_t* current = current_process[prid];
+  pteEntry_t* entry = &current->p_supportStruct->sup_privatePgTbl[p];
+  setENTRYHI(entry->pte_entryHI);
+  setENTRYLO(entry->pte_entryLO);
+  TLBWR();
+  LDST(GET_EXCEPTION_STATE_PTR(prid));
 }
