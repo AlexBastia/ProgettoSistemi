@@ -81,7 +81,7 @@ void pager(){
         trapHandler(); //TODO i guess
     };
     //punto4
-    SYSCALL(PASSEREN, &swap_pool_sem, 0, 0);
+    SYSCALL(PASSEREN, &swap_pool_sem.value, 0, 0);
     //punto5
     unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);//macro da cpu.h
     unsigned int asid = sup->sup_asid;
@@ -94,7 +94,7 @@ void pager(){
             updateTLB(pte_p);
             CRITICAL_END();
             //6c: (se la pagina e` nella swap pool, e` valida per forza)
-            SYSCALL(VERHOGEN, &swap_pool_sem, 0, 0);
+            SYSCALL(VERHOGEN, &swap_pool_sem.value, 0, 0);
             LDST(current_state);
         }
     }
@@ -129,7 +129,7 @@ void pager(){
     updateTLB(pte_p);
     CRITICAL_END();
     //14 
-    SYSCALL(VERHOGEN, &swap_pool_sem, 0, 0);
+    SYSCALL(VERHOGEN, &swap_pool_sem.value, 0, 0);
     //15
     LDST(current_state);
 }
