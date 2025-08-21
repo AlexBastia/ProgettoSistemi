@@ -1,6 +1,5 @@
 #include "headers/vmSupport.h"
 
-
 /*Important: Using the μRISC-V Machine Configuration Panel make sure that there is sufficient
 “installed” RAM for the OS code, the Swap Pool and stack page for test (e.g. 512 frames).*/
 #define SWAPPOOLSTART RAMSTART + (64 * PAGESIZE) + (NCPU * PAGESIZE);
@@ -69,10 +68,6 @@ void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte) {
     swap_pool_table[frame_i].sw_asid   = asid;  /* ASID del processo proprietario */
     swap_pool_table[frame_i].sw_pte    = pte;   /* puntatore alla page table entry */
 }
-
-
-
-
 
 //pdf 4.2
 void pager(){

@@ -22,7 +22,7 @@
 
 
 
-void syscallHandler(state_t* exp_state);
+void generalExceptionSupportHandler(state_t* exp_state);
 
 
 #endif
