@@ -22,7 +22,7 @@
 
 
 
-void generalExceptionSupportHandler(state_t* exp_state);
-
+void generalExceptionSupportHandler();
+void programTrapHandler(state_t* exp_state);
 
 #endif

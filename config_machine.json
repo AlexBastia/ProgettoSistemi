@@ -6,14 +6,74 @@
     "bootstrap-rom": "/usr/local/share/uriscv/coreboot.rom.uriscv",
     "clock-rate": 1,
     "devices": {
+        "flash0": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalReader.uriscv"
+        },
+        "flash1": {
+            "enabled": true,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest2.uriscv"
+        },
+        "flash2": {
+            "enabled": true,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest3.uriscv"
+        },
+        "flash3": {
+            "enabled": true,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest4.uriscv"
+        },
+        "flash4": {
+            "enabled": true,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest5.uriscv"
+        },
+        "flash5": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/strConcat.uriscv"
+        },
+        "flash6": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/printerTest.uriscv"
+        },
+        "flash7": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/fibEleven.uriscv"
+        },
         "terminal0": {
             "enabled": true,
             "file": "term0.uriscv"
+        },
+        "terminal1": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term1.uriscv"
+        },
+        "terminal2": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term2.uriscv"
+        },
+        "terminal3": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term3.uriscv"
+        },
+        "terminal4": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term4.uriscv"
+        },
+        "terminal5": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term5.uriscv"
+        },
+        "terminal6": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term6.uriscv"
+        },
+        "terminal7": {
+            "enabled": false,
+            "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term7.uriscv"
         }
     },
     "execution-rom": "/usr/local/share/uriscv/exec.rom.uriscv",
-    "num-processors": 8,
-    "num-ram-frames": 256,
+    "num-processors": 1,
+    "num-ram-frames": 512,
     "symbol-table": {
         "asid": 64,
         "file": "build/MultiPandOS.stab.uriscv"

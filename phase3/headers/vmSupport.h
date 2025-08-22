@@ -11,6 +11,7 @@
 
 #include "../../phase2/headers/exceptions.h"
 #include "initProc.h"
+#include "sysSupport.h"
 
 void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte);
 

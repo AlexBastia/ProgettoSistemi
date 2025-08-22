@@ -1,135 +1,152 @@
 #include "headers/vmSupport.h"
-
-/*Important: Using the μRISC-V Machine Configuration Panel make sure that there is sufficient
-“installed” RAM for the OS code, the Swap Pool and stack page for test (e.g. 512 frames).*/
-#define SWAPPOOLSTART RAMSTART + (64 * PAGESIZE) + (NCPU * PAGESIZE);
-/* Macro per aprire una critical section */
-#define CRITICAL_START() unsigned int _cs_status = getSTATUS(); setSTATUS(_cs_status & DISABLEINTS)
-
-/* Macro per chiudere una critical section */
-#define CRITICAL_END() setSTATUS(_cs_status)
-static int nextFrame = 0;      // variabile statica per FIFO
+#include "headers/sysSupport.h"
 
 
+// Definizioni
+#define FRAMEPOOLSTART (RAMSTART + (OSFRAMES * PAGESIZE))
 
+extern void klog_print(char*);
+extern void klog_print_dec(int);
+extern void klog_print_hex(unsigned int);
 
-//CHIAMARE SEMPRE IN UNA CRITICAL SECTION
-void updateTLB(pteEntry_t* p){
-    /* Strategia semplice: TLBCLR, poi scrivi la PTE corrente */
-    TLBCLR();
-    setENTRYHI(p->pte_entryHI);
-    setENTRYLO(p->pte_entryLO);
-    TLBWR();
-};
+// Prototipi delle funzioni statiche
+static void updateTLB(pteEntry_t* p);
+static int isSwapFrameFree(int frame);
+static int getSwapFrame();
+static int getFifoFrame();
 
-//IMPORTANT TODO AFTER DEBUGGING : cambiare ogni istanza di updateTLB() con updateTLBv2(). non so bene perche` ma nel pdf dicono di finire il prog. prima di usare questa [5.2]
-void updateTLB_v2(pteEntry_t* p) {
-    setENTRYHI(p->pte_entryHI);
-    TLBP();
-    if (!(getINDEX() & PRESENTFLAG)) { // Index.P == 0 significa entry presente
-        setENTRYLO(p->pte_entryLO);
-        TLBWI();
-    }
-}
-
-int isSwapFrameFree(int frame) {
-    return swap_pool_table[frame].sw_asid == 0; // 0 indica frame libero
-}
-int getFifoFrame() {
-    static int nextFrame = 0;      // variabile statica per FIFO
-    int frame = nextFrame;
-    nextFrame = (nextFrame + 1) % POOLSIZE;  // round-robin
-    return frame;
-}
-
-//la versione ottimizzata, come da punto 10 del pdf
-int getSwapFrame() {
-    for(int i = 0; i<POOLSIZE; i++){
-        if(isSwapFrameFree(i)) return i;
-    }
-    return getFifoFrame();
-}
-
-
-   /* Funzione generica per leggere o scrivere un frame sulla flash */
-void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
-    unsigned int frame_phys = FRAMEPOOLSTART + (frame_i * PAGESIZE);
-    volatile dtpreg_t *flash = (dtpreg_t*) DEV_REG_ADDR(IL_FLASH, asid - 1);
-    flash->data0 = frame_phys;
-    unsigned int cmd = ((unsigned int)vpn << 8) | op;
-    int io = SYSCALL(DOIO, flash->command, cmd, 0);
-    if (io != OK) {
-        trapHandler();
-    }
-}
-/* Aggiorna la swap pool dopo aver letto/scritto un frame */
-void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t *pte) {
-    swap_pool_table[frame_i].sw_pageNo = vpn;   /* pagina logica che ora occupa il frame */
-    swap_pool_table[frame_i].sw_asid   = asid;  /* ASID del processo proprietario */
-    swap_pool_table[frame_i].sw_pte    = pte;   /* puntatore alla page table entry */
-}
-
-//pdf 4.2
-void pager(){
-    //punto1
-    support_t* sup = SYSCALL(GETSUPPORTPTR, 0, 0, 0);
-    //punto2
+void pager() {
+    klog_print("vmSupport: --- Inizio Pager (Page Fault) ---\n");
+    support_t* sup = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     state_t* current_state = &sup->sup_exceptState[PGFAULTEXCEPT];
-    unsigned int cause = current_state->cause;
-    //punto3
-    if((cause&CAUSE_EXCCODE_MASK) == EXC_MOD){
-        trapHandler(); //TODO i guess
-    };
-    //punto4
-    SYSCALL(PASSEREN, &swap_pool_sem.value, 0, 0);
-    //punto5
-    unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);//macro da cpu.h
+    unsigned int p = ENTRYHI_GET_VPN(current_state->entry_hi);
     unsigned int asid = sup->sup_asid;
     pteEntry_t* pte_p = &sup->sup_privatePgTbl[p];
 
-    //punto6
-    for (int i = 0; i < POOLSIZE; i++){
-        if(swap_pool_table[i].sw_asid==asid && swap_pool_table[i].sw_pageNo == p){
-            CRITICAL_START();
-            updateTLB(pte_p);
-            CRITICAL_END();
-            //6c: (se la pagina e` nella swap pool, e` valida per forza)
-            SYSCALL(VERHOGEN, &swap_pool_sem.value, 0, 0);
-            LDST(current_state);
-        }
-    }
-    //punto 7
-    int victim = getSwapFrame();
-    unsigned int frame_phys = FRAMEPOOLSTART + (victim * PAGESIZE);
+    int pid = SYSCALL(GETPROCESSID, 0, 0, 0); // Ottieni il PID per la gestione del mutex
 
-    //punto 9
-    if(!isSwapFrameFree(victim)){ //la funzione e` il punto 8
-        int          x_asid = swap_pool_table[victim].sw_asid;
-        unsigned int k_vpn  = swap_pool_table[victim].sw_pageNo;
-        pteEntry_t*  k_pte  = swap_pool_table[victim].sw_pte;
+    klog_print("vmSupport: Page Fault per ASID: ");
+    klog_print_dec(asid);
+    klog_print(", VPN: ");
+    klog_print_hex(p);
+    klog_print("\n");
+
+    unsigned int cause = current_state->cause;
+    if ((cause & CAUSE_EXCCODE_MASK) == EXC_MOD) {
+        klog_print("vmSupport: ERRORE! Rilevata TLB-Modification exception. Terminazione...\n");
+        programTrapHandler(current_state);
+        return;
+    };
+
+    klog_print("vmSupport: Acquisizione mutex Swap Pool...\n");
+    getMutex(&swap_pool_sem, pid);
+
+    int victim = getSwapFrame();
+    klog_print("vmSupport: Frame scelto per il rimpiazzo (vittima): ");
+    klog_print_dec(victim);
+    klog_print("\n");
+
+    if (!isSwapFrameFree(victim)) {
+        int x_asid = swap_pool_table[victim].sw_asid;
+        unsigned int k_vpn = swap_pool_table[victim].sw_pageNo;
+        pteEntry_t* k_pte = swap_pool_table[victim].sw_pte;
+
+        klog_print("vmSupport: Frame occupato da ASID: ");
+        klog_print_dec(x_asid);
+        klog_print(", VPN: ");
+        klog_print_hex(k_vpn);
+        klog_print(". Avvio scrittura su flash (page-out)...\n");
+
         CRITICAL_START();
-        //9a
-        k_pte->pte_entryLO &= ~ENTRYLO_VALID; //not valid page
-        //9b
+        k_pte->pte_entryLO &= ~VALIDON; // Invalida la vecchia pagina
         updateTLB(k_pte);
         CRITICAL_END();
-        //9c
+
         read_or_write_flash(victim, k_vpn, x_asid, FLASHWRITE);
+        klog_print("vmSupport: Page-out completato.\n");
+    } else {
+        klog_print("vmSupport: Trovato frame libero, non e' necessario un page-out.\n");
     }
-    //punto10
+
+    klog_print("vmSupport: Avvio lettura da flash della nuova pagina (page-in)...\n");
     read_or_write_flash(victim, p, asid, FLASHREAD);
-    //punto11
+    klog_print("vmSupport: Page-in completato.\n");
+
+    klog_print("vmSupport: Aggiornamento delle strutture dati (Swap Pool Table e Page Table)...\n");
     update_swap_pool_entry(victim, p, asid, pte_p);
-    //punto12
+
     CRITICAL_START();
-    pte_p->pte_entryLO |= ENTRYLO_VALID;    //pagina valida
-    pte_p->pte_entryLO &= ~ENTRYLO_PFN_MASK; //cancella vecchio pfn
-    pte_p->pte_entryLO |= (victim << ENTRYLO_PFN_BIT); //scrivi nuovo pfn
-    //punto13
+    pte_p->pte_entryLO |= VALIDON;
+    pte_p->pte_entryLO &= ~ENTRYLO_PFN_MASK; // Pulisce il vecchio PFN
+    pte_p->pte_entryLO |= (FRAMEPOOLSTART + (victim * PAGESIZE)); // Imposta il nuovo PFN
     updateTLB(pte_p);
     CRITICAL_END();
-    //14 
-    SYSCALL(VERHOGEN, &swap_pool_sem.value, 0, 0);
-    //15
+    klog_print("vmSupport: Strutture aggiornate.\n");
+
+    
+    klog_print("vmSupport: Rilascio mutex Swap Pool.\n");
+    releaseMutex(&swap_pool_sem, pid);
+
+    klog_print("vmSupport: --- Fine Pager. Ritorno al processo. ---\n");
     LDST(current_state);
+}
+
+void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
+    unsigned int frame_phys = FRAMEPOOLSTART + (frame_i * PAGESIZE);
+    dtpreg_t* flash = (dtpreg_t*)DEV_REG_ADDR(IL_FLASH, asid - 1);
+    flash->data0 = frame_phys;
+    unsigned int cmd = ((unsigned int)vpn << 8) | op;
+
+    klog_print("  flash_io: Esecuzione DOIO su flash. ASID: ");
+    klog_print_dec(asid);
+    klog_print(", VPN/Blocco: ");
+    klog_print_hex(vpn);
+    klog_print(", Operazione: ");
+    klog_print_dec(op);
+    klog_print("\n");
+
+    int status = SYSCALL(DOIO, (int)&(flash->command), cmd, 0);
+
+    if (status != 1) { // 1 == READY
+        klog_print("  flash_io: ERRORE CRITICO! I/O su flash fallito! Status: ");
+        klog_print_dec(status);
+        klog_print(". Avvio Program Trap Handler...\n");
+        support_t* support = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
+        state_t* exp_state = &(support->sup_exceptState[GENERALEXCEPT]);
+        programTrapHandler(exp_state);
+    } else {
+        klog_print("  flash_io: Operazione I/O su flash completata con successo.\n");
+    }
+}
+
+void update_swap_pool_entry(int frame_i, int vpn, int asid, pteEntry_t* pte) {
+    swap_pool_table[frame_i].sw_pageNo = vpn;
+    swap_pool_table[frame_i].sw_asid = asid;
+    swap_pool_table[frame_i].sw_pte = pte;
+}
+
+static void updateTLB(pteEntry_t* p) {
+    setENTRYHI(p->pte_entryHI);
+    setENTRYLO(p->pte_entryLO);
+    TLBWR();
+}
+
+static int isSwapFrameFree(int frame) {
+    return swap_pool_table[frame].sw_asid == -1;
+}
+
+static int getFifoFrame() {
+    static int fifo_hand = 0;
+    int frame = fifo_hand;
+    fifo_hand = (fifo_hand + 1) % POOLSIZE;
+    return frame;
+}
+
+static int getSwapFrame() {
+    for (int i = 0; i < POOLSIZE; i++) {
+        if (isSwapFrameFree(i)) {
+            return i;
+        }
+    }
+    return getFifoFrame();
 }

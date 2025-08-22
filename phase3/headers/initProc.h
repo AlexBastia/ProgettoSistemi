@@ -13,16 +13,19 @@
 
 #define UPROC_NUM 8
 
+// Struttura per i semafori di supporto con tracciamento del proprietario
 typedef struct supSem {
   int value;
   int holder_pid;
 } supSem;
 
+// Variabili globali
 extern swap_t swap_pool_table[POOLSIZE];
 extern supSem swap_pool_sem;
 extern supSem sharable_dev_sem[NSUPPSEM];
 extern int masterSemaphore;
 
+// Dichiarazione delle funzioni di gestione dei mutex
 void getMutex(supSem* sem, int pid);
 void releaseMutex(supSem* sem, int pid);
 void releaseAllMutex(int pid);
