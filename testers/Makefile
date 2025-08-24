@@ -31,7 +31,7 @@ EF = uriscv-elf2uriscv
 UDEV = uriscv-mkdev
 
 # main target
-all: terminalTest5.uriscv terminalTest2.uriscv terminalTest3.uriscv terminalTest4.uriscv fibEight.uriscv fibEleven.uriscv printerTest.uriscv strConcat.uriscv terminalReader.uriscv
+all: terminalTest5.uriscv terminalTest2.uriscv terminalTest3.uriscv terminalTest4.uriscv fibEight.uriscv fibEleven.uriscv printerTest.uriscv strConcat.uriscv terminalReader.uriscv 
 
 %.o: %.c $(TDEFS)
 	$(CC) $(CFLAGS) $<

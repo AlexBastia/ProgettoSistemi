@@ -31,42 +31,66 @@ void klog_print(char *str) {
 }
 
 /*
- *   Funzione per la stampa di numeri nei registri di memoria usati per il debugging.
- *   N.B. La funzione stampa numeri in un intervallo compreso tra 0 e 99
+ * Funzione per la stampa di numeri nei registri di memoria usati per il debugging.
+ * N.B. La funzione stampa numeri in un intervallo compreso tra 0 e 99
  */
 void klog_print_dec(int num) {
-  const char digits[] = "0123456789";
+    char buffer[11]; // Buffer per contenere le cifre di un int a 32 bit + segno
+    int i = 0;
+    const char digits[] = "0123456789";
 
-  // Gestione valori negativi
-  if (num < 0) {
-    klog_buffer[klog_line_index][klog_char_index] = '-';
-    next_char();
-    num = -num;
-  }
+    if (num == 0) {
+        klog_buffer[klog_line_index][klog_char_index] = '0';
+        next_char();
+        return;
+    }
 
-  if (num >= 10) {
-    do {
-      klog_buffer[klog_line_index][klog_char_index] = digits[num % 10];
-      num /= 10;
-      next_char();
-    } while (num > 0);
-  } else {
-    int buff = num % 10;
-    num /= 10;
-    klog_buffer[klog_line_index][klog_char_index] = digits[buff];
-    next_char();
-  }
+    if (num < 0) {
+        klog_buffer[klog_line_index][klog_char_index] = '-';
+        next_char();
+        num = -num;
+    }
+
+    // Estrae le cifre e le salva nel buffer in ordine inverso
+    while (num > 0) {
+        buffer[i++] = digits[num % 10];
+        num /= 10;
+    }
+
+    // Stampa le cifre dal buffer nell'ordine corretto
+    while (i > 0) {
+        klog_buffer[klog_line_index][klog_char_index] = buffer[--i];
+        next_char();
+    }
 }
 
-// Princ a number in hexadecimal format (best for addresses)
-void klog_print_hex(unsigned int num) {
-  const char digits[] = "0123456789ABCDEF";
 
-  do {
-    klog_buffer[klog_line_index][klog_char_index] = digits[num % 16];
-    num /= 16;
-    next_char();
-  } while (num > 0);
+// Print a number in hexadecimal format (best for addresses)
+void klog_print_hex(unsigned int num) {
+    char buffer[8]; // Un unsigned int a 32 bit ha al massimo 8 cifre esadecimali
+    int i = 0;
+    const char hexdigits[] = "0123456789ABCDEF";
+
+    if (num == 0) {
+        klog_buffer[klog_line_index][klog_char_index] = '0';
+        next_char();
+        return;
+    }
+
+    // Estrae le cifre e le salva nel buffer in ordine inverso
+    while (num > 0) {
+        buffer[i++] = hexdigits[num % 16];
+        num /= 16;
+    }
+
+    // Aggiunge il prefisso "0x" per chiarezza
+    klog_print("0x");
+
+    // Stampa le cifre dal buffer nell'ordine corretto
+    while (i > 0) {
+        klog_buffer[klog_line_index][klog_char_index] = buffer[--i];
+        next_char();
+    }
 }
 
 // Move onto the next character (and into the next line if the current one overflows)

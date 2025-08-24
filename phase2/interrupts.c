@@ -84,48 +84,71 @@ void timerHandler(state_t *current_state) {
   Scheduler();
 }
 
-void intHandler(int intlineNo, state_t *current_state) {
-  int devNo = getdevNo(intlineNo);
-  memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (devNo * 0x10);  // punto 1
-  unsigned int status = 0;
+static void intHandler(int intlineNo, state_t *current_state) {
+    // Ottieni l'indirizzo di base del dispositivo che ha interrotto
+    memaddr devAddrBase = START_DEVREG + ((intlineNo - 3) * 0x80) + (getdevNo(intlineNo) * 0x10);
+    unsigned int status = 0;
+    pcb_t *unblocked = NULL;
 
-  ACQUIRE_LOCK(&global_lock);
-  if (intlineNo == 7) {
-    /* Terminal Interrupt */
-    termreg_t *termReg = (termreg_t *)devAddrBase;
-    unsigned int trans_stat = termReg->transm_status & TERMSTATMASK;
-    if (2 <= trans_stat && trans_stat <= OKCHARTRANS) {  // If the transmit status code is an error or Char Received,
-                                                         // then the sub-device has an interrupt pending
-      status = termReg->transm_status;
-      termReg->transm_command = ACK;
-      devAddrBase += 0x8;
-    } else {  // Int is recv
-      status = termReg->recv_status;
-      termReg->recv_command = ACK;
+    ACQUIRE_LOCK(&global_lock);
+
+    if (intlineNo == 7) {
+        /* --- Gestione Speciale e Corretta per i Terminali --- */
+        termreg_t *termReg = (termreg_t *)devAddrBase;
+        unsigned int trans_stat = termReg->transm_status & TERMSTATMASK;
+        unsigned int recv_stat = termReg->recv_status & TERMSTATMASK;
+        int *devSemaphore = NULL;
+
+        // PRIMA controlla se l'interruzione è per la TRASMISSIONE completata
+        if (trans_stat == 5) { // Lo stato 5 significa "Character Transmitted"
+            status = termReg->transm_status;
+            termReg->transm_command = ACK; // Accusa (ACK) il sub-device di trasmissione
+
+            // Trova il semaforo corretto per il sub-device di TRASMISSIONE
+            devSemaphore = &device_semaphores[findDeviceIndex((memaddr *)&termReg->transm_command)];
+        } 
+        // ALTRIMENTI, controlla se l'interruzione è per la RICEZIONE completata
+        else if (recv_stat == 5) { // Lo stato 5 significa "Character Received"
+            status = termReg->recv_status;
+            termReg->recv_command = ACK; // Accusa (ACK) il sub-device di ricezione
+
+            // Trova il semaforo corretto per il sub-device di RICEZIONE
+            devSemaphore = &device_semaphores[findDeviceIndex((memaddr *)&termReg->recv_command)];
+        }
+
+        // Se abbiamo gestito un'interruzione valida (trasmissione o ricezione), sblocchiamo il processo
+        if (devSemaphore != NULL) {
+            (*devSemaphore)++;
+            unblocked = removeBlocked(devSemaphore);
+        }
+
+    } else {
+        /* --- Gestione per tutti gli altri dispositivi (Disk, Flash, Printer, etc.) --- */
+        dtpreg_t *devReg = (dtpreg_t *)devAddrBase;
+        status = devReg->status;
+        devReg->command = ACK;
+
+        int deviceID = findDeviceIndex((memaddr *)devAddrBase);
+        int *devSemaphore = &device_semaphores[deviceID];
+
+        (*devSemaphore)++;
+        unblocked = removeBlocked(devSemaphore);
     }
-  } else {
-    /* Generic device Interrupt */
-    dtpreg_t *devReg = (dtpreg_t *)devAddrBase;
-    status = devReg->status;  // punto 2
-    devReg->command = ACK;
-  }
 
-  /* V the device semaphore */
-  int deviceID = findDeviceIndex((memaddr *)devAddrBase);
-  int *devSemaphore = &device_semaphores[deviceID];  // get the semaphore of the device
-  (*devSemaphore)++;
-  pcb_t *unblocked = removeBlocked(devSemaphore);  // remove the first process from the blocked list of the semaphore
-  if (unblocked != NULL) {
-    unblocked->p_s.reg_a0 = status;
-    insertProcQ(&ready_queue, unblocked);
-  }
-  if (current_process[getPRID()] != NULL) {
-    RELEASE_LOCK(&global_lock);
-    LDST(current_state);
-  } else {
-    RELEASE_LOCK(&global_lock);
-    Scheduler();
-  }
+    // Se un processo è stato sbloccato (da qualsiasi dispositivo), aggiorna il suo stato e mettilo in coda
+    if (unblocked != NULL) {
+        unblocked->p_s.reg_a0 = status;
+        insertProcQ(&ready_queue, unblocked);
+    }
+
+    // Se un processo era in esecuzione, ritorna il controllo, altrimenti chiama lo scheduler
+    if (current_process[getPRID()] != NULL) {
+        RELEASE_LOCK(&global_lock);
+        LDST(current_state);
+    } else {
+        RELEASE_LOCK(&global_lock);
+        Scheduler();
+    }
 }
 
 /*---------Helper Functions--------*/
