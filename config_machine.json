@@ -11,19 +11,19 @@
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalReader.uriscv"
         },
         "flash1": {
-            "enabled": true,
+            "enabled": false,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest2.uriscv"
         },
         "flash2": {
-            "enabled": true,
+            "enabled": false,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest3.uriscv"
         },
         "flash3": {
-            "enabled": true,
+            "enabled": false,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest4.uriscv"
         },
         "flash4": {
-            "enabled": true,
+            "enabled": false,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest5.uriscv"
         },
         "flash5": {

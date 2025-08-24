@@ -1,9 +1,13 @@
 #include "headers/initProc.h"
-#include "headers/sysSupport.h"
-#include "headers/vmSupport.h"
+
 #include <uriscv/liburiscv.h>
 #include <uriscv/types.h>
-#include "../klog.c"
+
+#include "headers/sysSupport.h"
+#include "headers/vmSupport.h"
+
+extern void klog_print(char* str);
+extern void klog_print_dec(int num);
 
 // Dichiarazioni delle variabili globali
 swap_t swap_pool_table[POOLSIZE];
@@ -60,9 +64,9 @@ void test() {
 
     // Inizializzazione della Page Table
     for (int j = 0; j < MAXPAGES; j++) {
-        unsigned int vpn = (j < MAXPAGES - 1) ? (0x80000 + j) : 0xBFFFF;
-        supports[i].sup_privatePgTbl[j].pte_entryHI = (vpn << VPNSHIFT) | (asid << ASIDSHIFT);
-        supports[i].sup_privatePgTbl[j].pte_entryLO = DIRTYON;
+      unsigned int vpn = (j < MAXPAGES - 1) ? (0x80000 + j) : 0xBFFFF;
+      supports[i].sup_privatePgTbl[j].pte_entryHI = (vpn << VPNSHIFT) | (asid << ASIDSHIFT);
+      supports[i].sup_privatePgTbl[j].pte_entryLO = DIRTYON;
     }
 
     // Creazione del processo

@@ -87,19 +87,19 @@
             "file": "term3.uriscv"
         },
         "terminal4": {
-            "enabled": true,
+            "enabled": false,
             "file": "term4.uriscv"
         },
         "terminal5": {
-            "enabled": true,
+            "enabled": false,
             "file": "term5.uriscv"
         },
         "terminal6": {
-            "enabled": true,
+            "enabled": false,
             "file": "term6.uriscv"
         },
         "terminal7": {
-            "enabled": true,
+            "enabled": false,
             "file": "term7.uriscv"
         }
     },
