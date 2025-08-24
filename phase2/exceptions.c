@@ -302,6 +302,10 @@ static void passUpordie(int exception, state_t* exc_state) {
   sup->sup_exceptState[exception] = *exc_state;
   context_t* ctx = &sup->sup_exceptContext[exception];
 
+  klog_print("PassUp con cause: ");
+  klog_print_dec(sup->sup_exceptState[exception].cause);
+  klog_print("\n");
+
   RELEASE_LOCK(&global_lock);
 
   LDCXT(ctx->stackPtr, ctx->status, ctx->pc);  // load the context
