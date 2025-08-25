@@ -212,23 +212,36 @@ static void SYS5(state_t* exp_state) {
   }
 
   termreg_t* terminal_device = (termreg_t*)DEV_REG_ADDR(IL_TERMINAL, asid - 1);
-  int status = SYSCALL(DOIO, (int)&(terminal_device->recv_command), RECEIVECHAR, 0);
+  int i = 0; // Contatore per i caratteri letti
+  
+  // Ciclo di lettura fino al newline
+  while (1) {
+    int status = SYSCALL(DOIO, (int)&(terminal_device->recv_command), RECEIVECHAR, 0);
+    unsigned int device_status = status & 0xFF;
+    unsigned char received_char = (status >> 8) & 0xFF;
 
-  unsigned int device_status = status & 0xFF;
-  unsigned int chars_read = status >> 8;
+    // Controlla se la lettura è andata a buon fine
+    if (device_status != CHARRECV) { 
+      exp_state->reg_a0 = (i > 0) ? i : -(int)device_status;
+      break;
+    }
 
-  klog_print("sysSupport: SYS5 DOIO completato con stato: ");
-  klog_print_dec(device_status);
-  klog_print(", Caratteri letti: ");
-  klog_print_dec(chars_read);
-  klog_print("\n");
-
-  if (device_status == 5) {  // CHAR_RECEIVED
-    exp_state->reg_a0 = 1;
-    virtAddr[0] = chars_read;
-  } else {
-    exp_state->reg_a0 = -(int)device_status;
+    // Se il carattere è un newline, abbiamo finito
+    if (received_char == '\n') {
+      virtAddr[i] = ' ';
+      i++; // Conta anche il newline come carattere letto per la strcat
+      exp_state->reg_a0 = i; // Restituisci il numero di caratteri letti
+      break;
+    }
+    
+    // Altrimenti, salva il carattere nel buffer e incrementa il contatore
+    virtAddr[i] = received_char;
+    i++;
   }
+
+  klog_print("sysSupport: SYS5 DOIO completato. Caratteri letti: ");
+  klog_print_dec(i);
+  klog_print("\n");
 
   exp_state->pc_epc += 4;
   LDST(exp_state);

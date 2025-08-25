@@ -11,15 +11,15 @@
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalReader.uriscv"
         },
         "flash1": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest2.uriscv"
         },
         "flash2": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest3.uriscv"
         },
         "flash3": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest4.uriscv"
         },
         "flash4": {
@@ -59,19 +59,19 @@
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term3.uriscv"
         },
         "terminal4": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term4.uriscv"
         },
         "terminal5": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term5.uriscv"
         },
         "terminal6": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term6.uriscv"
         },
         "terminal7": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/term7.uriscv"
         }
     },
