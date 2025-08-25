@@ -13,7 +13,6 @@ static int getSwapFrame();
 static int getFifoFrame();
 
 void pager() {
-    klog_print("\n\n---- MODIFICA DEL 23 AGOSTO COMPILATA CORRETTAMENTE ----\n\n"); // <-- AGGIUNGI QUESTA RIGA
     klog_print("vmSupport: --- Inizio Pager (Page Fault) ---\n");
     support_t* sup = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     state_t* current_state = &sup->sup_exceptState[PGFAULTEXCEPT];
@@ -57,8 +56,6 @@ void pager() {
         programTrapHandler(current_state);
         return;
     };
-
-    klog_print("vmSupport: Acquisizione mutex Swap Pool...\n");
     getMutex(&swap_pool_sem, pid);
 
     int victim = getSwapFrame();
@@ -72,9 +69,6 @@ void pager() {
         k_pte = swap_pool_table[victim].sw_pte;
     }
 
-    klog_print("vmSupport: Rilascio mutex Swap Pool.\n");
-    releaseMutex(&swap_pool_sem, pid);
-
     klog_print("vmSupport: Frame scelto per il rimpiazzo (vittima): ");
     klog_print_dec(victim);
     klog_print("\n");
@@ -86,9 +80,9 @@ void pager() {
         klog_print(", VPN: ");
         klog_print_hex(k_vpn);
         klog_print(". Avvio scrittura su flash (page-out)...\n");
+        k_pte->pte_entryLO &= ~VALIDON;
 
         CRITICAL_START();
-        k_pte->pte_entryLO &= ~VALIDON;
         updateTLB(k_pte);
         read_or_write_flash(victim, k_vpn, x_asid, FLASHWRITE);
         klog_print("vmSupport: Page-out completato.\n");
@@ -103,9 +97,6 @@ void pager() {
     read_or_write_flash(victim, page_tbl_index, asid, FLASHREAD);
    
     klog_print("vmSupport: Page-in completato.\n");
-    klog_print("vmSupport: Acquisizione mutex Swap Pool...\n");
-    getMutex(&swap_pool_sem, pid);
-    klog_print("vmSupport: Aggiornamento delle strutture dati (Swap Pool Table e Page Table)...\n");
     update_swap_pool_entry(victim, page_tbl_index, asid, pte_p);
 
     unsigned int pfn = (FRAMEPOOLSTART + (victim * PAGESIZE)) >> VPNSHIFT;
@@ -117,34 +108,10 @@ void pager() {
  */
 pte_p->pte_entryLO = (pfn << VPNSHIFT) | VALIDON | DIRTYON;
 
-// (Qui puoi lasciare le tue stampe di debug per verificare)
-  // --- BLOCCO DI DEBUG ---
-  klog_print("  DEBUG: --- Valori prima di updateTLB ---\n");
-  klog_print("  DEBUG: VPN (hex): ");
-  klog_print_hex(ENTRYHI_GET_VPN(pte_p->pte_entryHI));
-  klog_print(", ASID (dec): ");
-  klog_print_dec(ENTRYHI_GET_ASID(pte_p->pte_entryHI));
-  klog_print("\n");
-  klog_print("  DEBUG: Frame fisico scelto (dec): ");
-  klog_print_dec(victim);
-  klog_print("\n");
-  klog_print("  DEBUG: PFN calcolato (hex): ");
-  klog_print_hex(pfn);
-  klog_print("\n");
-  klog_print("  DEBUG: pte_entryHI da scrivere (hex): ");
-  klog_print_hex(pte_p->pte_entryHI);
-  klog_print("\n");
-  klog_print("  DEBUG: pte_entryLO da scrivere (hex): ");
-  klog_print_hex(pte_p->pte_entryLO);
-  klog_print("\n");
-  klog_print("  DEBUG: --- Fine Blocco Debug ---\n");
-  // --- FINE BLOCCO DI DEBUG ---
-
 updateTLB(pte_p);
 CRITICAL_END();
     klog_print("vmSupport: Strutture aggiornate.\n");
 
-    klog_print("vmSupport: Rilascio mutex Swap Pool.\n");
     releaseMutex(&swap_pool_sem, pid);
     klog_print("vmSupport: --- Fine Pager. Ritorno al processo. ---\n");
     LDST(current_state);
@@ -156,20 +123,9 @@ void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
     flash->data0 = frame_phys;
     unsigned int cmd = ((unsigned int)vpn << 8) | op;
 
-    klog_print("  flash_io: Esecuzione DOIO su flash. ASID: ");
-    klog_print_dec(asid);
-    klog_print(", VPN/Blocco: ");
-    klog_print_hex(vpn);
-    klog_print(", Operazione: ");
-    klog_print_dec(op);
-    klog_print("\n");
-
     int status = SYSCALL(DOIO, (int)&(flash->command), cmd, 0);
 
     if (status != 1) { // 1 == READY
-        klog_print("  flash_io: ERRORE CRITICO! I/O su flash fallito! Status: ");
-        klog_print_dec(status);
-        klog_print(". Avvio Program Trap Handler...\n");
         support_t* support = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
         state_t* exp_state = &(support->sup_exceptState[GENERALEXCEPT]);
         programTrapHandler(exp_state);
