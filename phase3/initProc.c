@@ -50,7 +50,8 @@ void test() {
     // Impostazione dello stato iniziale del processore
     initial_states[i].pc_epc = UPROCSTARTADDR;
     initial_states[i].reg_sp = USERSTACKTOP;
-    initial_states[i].status = MSTATUS_MPIE_MASK | MSTATUS_MIE_MASK | MSTATUS_FS_INITIAL;
+    initial_states[i].status = MSTATUS_MPIE_MASK | MSTATUS_MIE_MASK;
+    initial_states[i].mie = MIE_ALL;
     initial_states[i].entry_hi = (unsigned int)asid << ASIDSHIFT;
 
     // Inizializzazione della Struttura di Supporto

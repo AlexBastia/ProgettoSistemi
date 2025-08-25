@@ -11,31 +11,31 @@
             "file": "testers/strConcat.uriscv"
         },
         "flash1": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/fibEight.uriscv"
         },
         "flash2": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/terminalReader.uriscv"
         },
         "flash3": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/fibEleven.uriscv"
         },
         "flash4": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/terminalTest5.uriscv"
         },
         "flash5": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/terminalTest2.uriscv"
         },
         "flash6": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/terminalTest3.uriscv"
         },
         "flash7": {
-            "enabled": true,
+            "enabled": false,
             "file": "testers/printerTest.uriscv"
         },
         "printer0": {

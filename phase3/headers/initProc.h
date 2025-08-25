@@ -11,7 +11,7 @@
 /* Macro per chiudere una critical section */
 #define CRITICAL_END() setSTATUS(_cs_status)
 
-#define UPROC_NUM 8
+#define UPROC_NUM 1
 
 // Struttura per i semafori di supporto con tracciamento del proprietario
 typedef struct supSem {

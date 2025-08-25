@@ -28,35 +28,38 @@ void exceptionHandler() {
   unsigned int cpu_id = getPRID();                           // get the cpu id of the current process
   state_t* current_state = GET_EXCEPTION_STATE_PTR(cpu_id);  // get the current state of the process
 
-    unsigned int raw_cause = getCAUSE(); // Legge il registro CAUSE una sola volta
+  unsigned int raw_cause = getCAUSE();  // Legge il registro CAUSE una sola volta
 
-    // --- BLOCCO DI DEBUG FASE 2 ---
-    klog_print("\n>> NUCLEUS: Entrato in exceptionHandler <<\n");
-    klog_print(">> NUCLEUS: Causa RAW dal registro: ");
-    klog_print_hex(raw_cause);
-    klog_print("\n");
-    klog_print(">> NUCLEUS: PC al momento del fault: ");
-    klog_print_hex(current_state->pc_epc);
-    klog_print("\n");
-    // --- FINE BLOCCO DI DEBUG ---
+  // --- BLOCCO DI DEBUG FASE 2 ---
+  klog_print("\n>> NUCLEUS: Entrato in exceptionHandler <<\n");
+  klog_print(">> NUCLEUS: Causa RAW dal registro: ");
+  klog_print_hex(raw_cause);
+  klog_print("\n");
+  klog_print(">> NUCLEUS: PC al momento del fault: ");
+  klog_print_hex(current_state->pc_epc);
+  klog_print("\n");
+  // --- FINE BLOCCO DI DEBUG ---
 
-    // Estrae il codice dell'eccezione dal valore raw
-    unsigned int cause = raw_cause & CAUSE_EXCCODE_MASK;
+  // Estrae il codice dell'eccezione dal valore raw
+  unsigned int cause = raw_cause & CAUSE_EXCCODE_MASK;
 
-    // Controlla se è un interrupt usando il valore raw
-    if (CAUSE_IS_INT(raw_cause)) {
-        interruptHandler(cause, current_state);
-    } else if (cause == EXC_ECU || cause == EXC_ECM) {
-        syscallHandler(current_state);
-    } else if (cause >= EXC_MOD && cause <= EXC_UTLBS) {
-        passUpordie(PGFAULTEXCEPT, current_state);
-    } else {
-        passUpordie(GENERALEXCEPT, current_state);
-    }
+  // Controlla se è un interrupt usando il valore raw
+  if (CAUSE_IS_INT(raw_cause)) {
+    interruptHandler(cause, current_state);
+  } else if (cause == EXC_ECU || cause == EXC_ECM) {
+    syscallHandler(current_state);
+  } else if (cause >= EXC_MOD && cause <= EXC_UTLBS) {
+    passUpordie(PGFAULTEXCEPT, current_state);
+  } else {
+    passUpordie(GENERALEXCEPT, current_state);
+  }
 }
 
 static void syscallHandler(state_t* state) {
   int syscall_code = state->reg_a0;
+  klog_print("SYScall code: ");
+  klog_print_dec(syscall_code);
+  klog_print("\n");
   cpu_t end_time = 0;
 
   if (!(state->status & MSTATUS_MPP_MASK) && syscall_code < 0) {  // if the MPP bit is not set, the syscall was called in user mode
@@ -180,13 +183,13 @@ static void syscallHandler(state_t* state) {
       if (commandAddress == NULL) {
         RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // if the command address is NULL, return -1
-        //state->pc_epc += 4;  // increment the program counter
+        // state->pc_epc += 4;  // increment the program counter
         LDST(state);
         break;
       }
 
       /* Get device semaphore */
-      pcb_t* current = current_process[getPRID()];         // get the current process
+      pcb_t* current = current_process[getPRID()];     // get the current process
       int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
 
       if (devIndex < 0) {
@@ -385,42 +388,41 @@ int findDeviceIndex(memaddr* devRegAddress) {
 /* TLB-Refill Handler */
 /* One can place debug calls here, but not calls to print */
 void uTLB_RefillHandler() {
-    // Ottieni lo stato dell'eccezione
-    unsigned int prid = getPRID();
-    state_t* exception_state = GET_EXCEPTION_STATE_PTR(prid);
+  // Ottieni lo stato dell'eccezione
+  unsigned int prid = getPRID();
+  state_t* exception_state = GET_EXCEPTION_STATE_PTR(prid);
 
-    // Ottieni il puntatore al PCB e alla Support Structure del processo corrente
-    pcb_t* current_proc = current_process[prid];
-    support_t* support = current_proc->p_supportStruct;
+  // Ottieni il puntatore al PCB e alla Support Structure del processo corrente
+  pcb_t* current_proc = current_process[prid];
+  support_t* support = current_proc->p_supportStruct;
 
-    // Estrai il VPN che ha causato il fault
-    unsigned int vpn = (exception_state->entry_hi >> VPNSHIFT);
+  // Estrai il VPN che ha causato il fault
+  unsigned int vpn = (exception_state->entry_hi >> VPNSHIFT);
 
-    // ** CORREZIONE: Calcola l'indice corretto (0-31) a partire dal VPN **
-    int page_index;
-    if (vpn == (USERSTACKTOP >> VPNSHIFT) - 1) {
-        page_index = MAXPAGES - 1;
-    } else {
-        page_index = vpn - (UPROCSTARTADDR >> VPNSHIFT);
-    }
-    
-    // Controlla che l'indice sia valido per sicurezza
-    if (page_index < 0 || page_index >= MAXPAGES) {
-        // Se l'indice non è valido, è un errore grave, delega al pager
-         LDST(&support->sup_exceptContext[GENERALEXCEPT]);
-    }
+  // ** CORREZIONE: Calcola l'indice corretto (0-31) a partire dal VPN **
+  int page_index;
+  if (vpn == (USERSTACKTOP >> VPNSHIFT) - 1) {
+    page_index = MAXPAGES - 1;
+  } else {
+    page_index = vpn - (UPROCSTARTADDR >> VPNSHIFT);
+  }
 
-    // Ora accedi all'array con l'indice corretto, evitando il buffer overflow
-    pteEntry_t* pte = &support->sup_privatePgTbl[page_index];
+  // Controlla che l'indice sia valido per sicurezza
+  if (page_index < 0 || page_index >= MAXPAGES) {
+    // Se l'indice non è valido, è un errore grave, delega al pager
+    LDST(&support->sup_exceptContext[GENERALEXCEPT]);
+  }
 
-    // Carica la PTE corretta nel TLB
-    setENTRYHI(pte->pte_entryHI);
-    setENTRYLO(pte->pte_entryLO);
-    
-    // Usa TLBWR come richiesto esplicitamente dalle specifiche per il Refill Handler
-    TLBWR(); 
+  // Ora accedi all'array con l'indice corretto, evitando il buffer overflow
+  pteEntry_t* pte = &support->sup_privatePgTbl[page_index];
 
-    // Ritorna il controllo al processo per ritentare l'istruzione
-    LDST(exception_state);
+  // Carica la PTE corretta nel TLB
+  setENTRYHI(pte->pte_entryHI);
+  setENTRYLO(pte->pte_entryLO);
+
+  // Usa TLBWR come richiesto esplicitamente dalle specifiche per il Refill Handler
+  TLBWR();
+
+  // Ritorna il controllo al processo per ritentare l'istruzione
+  LDST(exception_state);
 }
-
