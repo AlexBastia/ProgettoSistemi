@@ -90,13 +90,15 @@ void pager() {
         CRITICAL_START();
         k_pte->pte_entryLO &= ~VALIDON;
         updateTLB(k_pte);
-        CRITICAL_END();
         read_or_write_flash(victim, k_vpn, x_asid, FLASHWRITE);
         klog_print("vmSupport: Page-out completato.\n");
+        CRITICAL_END();
+
     }
-    klog_print("vmSupport: Trovato frame libero, non e' necessario un page-out.\n");
+
+
+    CRITICAL_START();
     klog_print("vmSupport: Avvio lettura da flash della nuova pagina (page-in)...\n");
-    
     
     read_or_write_flash(victim, page_tbl_index, asid, FLASHREAD);
    
@@ -106,7 +108,6 @@ void pager() {
     klog_print("vmSupport: Aggiornamento delle strutture dati (Swap Pool Table e Page Table)...\n");
     update_swap_pool_entry(victim, page_tbl_index, asid, pte_p);
 
-    CRITICAL_START();
     unsigned int pfn = (FRAMEPOOLSTART + (victim * PAGESIZE)) >> VPNSHIFT;
 
 /* * CORREZIONE DEFINITIVA:
