@@ -31,11 +31,9 @@ void exceptionHandler() {
   unsigned int raw_cause = getCAUSE();  // Legge il registro CAUSE una sola volta
 
   // --- BLOCCO DI DEBUG FASE 2 ---
-  klog_print("\n>> NUCLEUS: Entrato in exceptionHandler <<\n");
-  klog_print(">> NUCLEUS: Causa RAW dal registro: ");
+  klog_print("\n>> NUCLEUS: exceptionHandler con causa: ");
   klog_print_hex(raw_cause);
-  klog_print("\n");
-  klog_print(">> NUCLEUS: PC al momento del fault: ");
+  klog_print("e PC : ");
   klog_print_hex(current_state->pc_epc);
   klog_print("\n");
   // --- FINE BLOCCO DI DEBUG ---
@@ -183,7 +181,7 @@ static void syscallHandler(state_t* state) {
       if (commandAddress == NULL) {
         RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // if the command address is NULL, return -1
-        // state->pc_epc += 4;  // increment the program counter
+        state->pc_epc += 4;  // increment the program counter
         LDST(state);
         break;
       }

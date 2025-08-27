@@ -13,50 +13,28 @@ static int getSwapFrame();
 static int getFifoFrame();
 
 void pager() {
-    klog_print("vmSupport: --- Inizio Pager (Page Fault) ---\n");
     support_t* sup = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     state_t* current_state = &sup->sup_exceptState[PGFAULTEXCEPT];
     unsigned int asid = sup->sup_asid;
     int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
-
-    // 1. Estrai il VPN completo che ha causato il fault
     unsigned int faulting_vpn = current_state->entry_hi >> VPNSHIFT;
-
-    klog_print("vmSupport: Page Fault per ASID: ");
-    klog_print_dec(asid);
-    klog_print(", VPN (vero): ");
-    klog_print_hex(faulting_vpn);
-    klog_print("\n");
-
-    // 2. Traduci il VPN nell'indice corretto per la page table
     unsigned int page_tbl_index;
     if (faulting_vpn == (USERSTACKTOP >> VPNSHIFT) - 1) {
-        // Caso speciale per la pagina di stack, che è l'ultima della page table
         page_tbl_index = MAXPAGES - 1;
     } else {
-        // Per tutte le altre pagine, l'indice è il VPN meno l'indirizzo di partenza
         page_tbl_index = faulting_vpn - (UPROCSTARTADDR >> VPNSHIFT);
     }
-
-    // 3. Controlla che l'indice sia valido. Se non lo è, è un segmentation fault.
     if (page_tbl_index < 0 || page_tbl_index >= MAXPAGES) {
-        klog_print("vmSupport: ERRORE! Accesso a memoria non valida (Segmentation Fault). Terminazione...\n");
-        programTrapHandler(current_state);
-        return; // Esci dal pager
-    }
-
-    // 4. Ottieni il puntatore corretto alla Page Table Entry usando l'indice calcolato
-    pteEntry_t* pte_p = &sup->sup_privatePgTbl[page_tbl_index];
-
-    // Adesso il resto del codice userà il puntatore corretto 'pte_p' e l'indice 'page_tbl_index'
-
-    unsigned int cause = current_state->cause;
-    if ((cause & CAUSE_EXCCODE_MASK) == EXC_MOD) {
-        klog_print("vmSupport: ERRORE! Rilevata TLB-Modification exception. Terminazione...\n");
         programTrapHandler(current_state);
         return;
-    };
-    getMutex(&swap_pool_sem, pid);
+    }
+    pteEntry_t* pte_p = &sup->sup_privatePgTbl[page_tbl_index];
+    unsigned int cause = current_state->cause;
+    if ((cause & CAUSE_EXCCODE_MASK) == EXC_MOD) {
+        programTrapHandler(current_state);
+        return;
+    };   
+     getMutex(&swap_pool_sem, pid);
 
     int victim = getSwapFrame();
     int page_out_needed = !isSwapFrameFree(victim);
@@ -67,36 +45,18 @@ void pager() {
         x_asid = swap_pool_table[victim].sw_asid;
         k_vpn = swap_pool_table[victim].sw_pageNo;
         k_pte = swap_pool_table[victim].sw_pte;
-    }
-
-    klog_print("vmSupport: Frame scelto per il rimpiazzo (vittima): ");
-    klog_print_dec(victim);
-    klog_print("\n");
-
-    if (page_out_needed) {
-
-        klog_print("vmSupport: Frame occupato da ASID: ");
-        klog_print_dec(x_asid);
-        klog_print(", VPN: ");
-        klog_print_hex(k_vpn);
-        klog_print(". Avvio scrittura su flash (page-out)...\n");
         k_pte->pte_entryLO &= ~VALIDON;
-
         CRITICAL_START();
         updateTLB(k_pte);
         read_or_write_flash(victim, k_vpn, x_asid, FLASHWRITE);
-        klog_print("vmSupport: Page-out completato.\n");
         CRITICAL_END();
 
     }
 
 
     CRITICAL_START();
-    klog_print("vmSupport: Avvio lettura da flash della nuova pagina (page-in)...\n");
     
     read_or_write_flash(victim, page_tbl_index, asid, FLASHREAD);
-   
-    klog_print("vmSupport: Page-in completato.\n");
     update_swap_pool_entry(victim, page_tbl_index, asid, pte_p);
 
     unsigned int pfn = (FRAMEPOOLSTART + (victim * PAGESIZE)) >> VPNSHIFT;
@@ -106,12 +66,10 @@ void pager() {
  * Questo è il modo corretto e robusto: combina il PFN (riportato a indirizzo base),
  * il bit di validità e il bit di "dirty".
  */
-pte_p->pte_entryLO = (pfn << VPNSHIFT) | VALIDON | DIRTYON;
+    pte_p->pte_entryLO = (pfn << VPNSHIFT) | VALIDON | DIRTYON;
 
-updateTLB(pte_p);
-CRITICAL_END();
-    klog_print("vmSupport: Strutture aggiornate.\n");
-
+    updateTLB(pte_p);
+    CRITICAL_END();
     releaseMutex(&swap_pool_sem, pid);
     klog_print("vmSupport: --- Fine Pager. Ritorno al processo. ---\n");
     LDST(current_state);
