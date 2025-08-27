@@ -31,11 +31,9 @@ void exceptionHandler() {
   unsigned int raw_cause = getCAUSE();  // Legge il registro CAUSE una sola volta
 
   // --- BLOCCO DI DEBUG FASE 2 ---
-  klog_print("\n>> NUCLEUS: Entrato in exceptionHandler <<\n");
-  klog_print(">> NUCLEUS: Causa RAW dal registro: ");
+  klog_print("\n>> NUCLEUS: exceptionHandler con causa:");
   klog_print_hex(raw_cause);
-  klog_print("\n");
-  klog_print(">> NUCLEUS: PC al momento del fault: ");
+  klog_print(" e PC : ");
   klog_print_hex(current_state->pc_epc);
   klog_print("\n");
   // --- FINE BLOCCO DI DEBUG ---
@@ -44,9 +42,10 @@ void exceptionHandler() {
   unsigned int cause = raw_cause & CAUSE_EXCCODE_MASK;
 
   // Controlla se è un interrupt usando il valore raw
-  if (CAUSE_IS_INT(raw_cause)) {
+  while (CAUSE_IS_INT(raw_cause)) {
     interruptHandler(cause, current_state);
-  } else if (cause == EXC_ECU || cause == EXC_ECM) {
+  }
+    if (cause == EXC_ECU || cause == EXC_ECM) {
     syscallHandler(current_state);
   } else if (cause >= EXC_MOD && cause <= EXC_UTLBS) {
     passUpordie(PGFAULTEXCEPT, current_state);
@@ -81,9 +80,9 @@ static void syscallHandler(state_t* state) {
 
       // if the PCB is NULL, the allocation failed for lack of resources
       if (newPCB == NULL) {
-        RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // return -1 to signal the error
         state->pc_epc += 4;
+        RELEASE_LOCK(&global_lock);
         LDST(state);
         break;
       }
@@ -95,9 +94,9 @@ static void syscallHandler(state_t* state) {
       }
       insertProcQ(&ready_queue, newPCB);
       process_count++;
-      RELEASE_LOCK(&global_lock);
       state->reg_a0 = newPCB->p_pid;  // return the pid of the new process
       state->pc_epc += 4;             // increment the program counter
+      RELEASE_LOCK(&global_lock);
       LDST(state);
       break;
 
@@ -106,8 +105,8 @@ static void syscallHandler(state_t* state) {
       termProc(pid);
       ACQUIRE_LOCK(&global_lock);
       if (current_process[getPRID()] != NULL) {
-        RELEASE_LOCK(&global_lock);
         state->pc_epc += 4;
+        RELEASE_LOCK(&global_lock);
         LDST(state);
       } else {
         RELEASE_LOCK(&global_lock);
@@ -140,8 +139,8 @@ static void syscallHandler(state_t* state) {
         }
       }
 
-      RELEASE_LOCK(&global_lock);
       state->pc_epc += 4;
+      RELEASE_LOCK(&global_lock);
       LDST(state);
       break;
 
@@ -170,8 +169,8 @@ static void syscallHandler(state_t* state) {
           insertProcQ(&ready_queue, unblocked);
         }
       }
-      RELEASE_LOCK(&global_lock);
       state->pc_epc += 4;  // increment the program counter
+      RELEASE_LOCK(&global_lock);
       LDST(state);
       break;
 
@@ -181,9 +180,9 @@ static void syscallHandler(state_t* state) {
       int commandValue = state->reg_a2;                   // get the command value
 
       if (commandAddress == NULL) {
-        RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // if the command address is NULL, return -1
-        // state->pc_epc += 4;  // increment the program counter
+        state->pc_epc += 4;  // increment the program counter
+        RELEASE_LOCK(&global_lock);
         LDST(state);
         break;
       }
@@ -193,9 +192,9 @@ static void syscallHandler(state_t* state) {
       int devIndex = findDeviceIndex(commandAddress);  // get the device index from the command address
 
       if (devIndex < 0) {
-        RELEASE_LOCK(&global_lock);
         state->reg_a0 = -1;  // if the device index is not valid, return -1
         state->pc_epc += 4;  // increment the program counter
+        RELEASE_LOCK(&global_lock);
         LDST(state);
         break;
       }
@@ -211,9 +210,9 @@ static void syscallHandler(state_t* state) {
 
       STCK(end_time);
       current->p_time += end_time - proc_time_started[getPRID()];  // update the time of the current process
-      RELEASE_LOCK(&global_lock);
 
       *commandAddress = commandValue;
+      RELEASE_LOCK(&global_lock);
       Scheduler();
       break;
 

@@ -13,7 +13,6 @@ static int getSwapFrame();
 static int getFifoFrame();
 
 void pager() {
-    klog_print("vmSupport: --- Inizio Pager (Page Fault) ---\n");
     support_t* sup = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
     state_t* current_state = &sup->sup_exceptState[PGFAULTEXCEPT];
     unsigned int asid = sup->sup_asid;
@@ -21,13 +20,6 @@ void pager() {
 
     // 1. Estrai il VPN completo che ha causato il fault
     unsigned int faulting_vpn = current_state->entry_hi >> VPNSHIFT;
-
-    klog_print("vmSupport: Page Fault per ASID: ");
-    klog_print_dec(asid);
-    klog_print(", VPN (vero): ");
-    klog_print_hex(faulting_vpn);
-    klog_print("\n");
-
     // 2. Traduci il VPN nell'indice corretto per la page table
     unsigned int page_tbl_index;
     if (faulting_vpn == (USERSTACKTOP >> VPNSHIFT) - 1) {
@@ -40,7 +32,6 @@ void pager() {
 
     // 3. Controlla che l'indice sia valido. Se non lo è, è un segmentation fault.
     if (page_tbl_index < 0 || page_tbl_index >= MAXPAGES) {
-        klog_print("vmSupport: ERRORE! Accesso a memoria non valida (Segmentation Fault). Terminazione...\n");
         programTrapHandler(current_state);
         return; // Esci dal pager
     }
@@ -52,7 +43,6 @@ void pager() {
 
     unsigned int cause = current_state->cause;
     if ((cause & CAUSE_EXCCODE_MASK) == EXC_MOD) {
-        klog_print("vmSupport: ERRORE! Rilevata TLB-Modification exception. Terminazione...\n");
         programTrapHandler(current_state);
         return;
     };
@@ -68,10 +58,6 @@ void pager() {
         k_vpn = swap_pool_table[victim].sw_pageNo;
         k_pte = swap_pool_table[victim].sw_pte;
     }
-
-    klog_print("vmSupport: Frame scelto per il rimpiazzo (vittima): ");
-    klog_print_dec(victim);
-    klog_print("\n");
 
     if (page_out_needed) {
 
@@ -130,7 +116,7 @@ void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
         state_t* exp_state = &(support->sup_exceptState[GENERALEXCEPT]);
         programTrapHandler(exp_state);
     } else {
-        klog_print("  flash_io: Operazione I/O su flash completata con successo.\n");
+        //klog_print("  flash_io: Operazione I/O su flash completata con successo.\n");
     }
 }
 

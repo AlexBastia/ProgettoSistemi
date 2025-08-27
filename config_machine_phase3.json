@@ -71,19 +71,19 @@
             "file": "printer7.uriscv"
         },
         "terminal0": {
-            "enabled": true,
+            "enabled": false,
             "file": "term0.uriscv"
         },
         "terminal1": {
-            "enabled": true,
+            "enabled": false,
             "file": "term1.uriscv"
         },
         "terminal2": {
-            "enabled": true,
+            "enabled": false,
             "file": "term2.uriscv"
         },
         "terminal3": {
-            "enabled": true,
+            "enabled": false,
             "file": "term3.uriscv"
         },
         "terminal4": {
@@ -104,7 +104,11 @@
         }
     },
     "execution-rom": "/usr/local/share/uriscv/exec.rom.uriscv",
+<<<<<<< Updated upstream
+    "num-processors": 4,
+=======
     "num-processors": 8,
+>>>>>>> Stashed changes
     "num-ram-frames": 512,
     "symbol-table": {
         "asid": 64,
