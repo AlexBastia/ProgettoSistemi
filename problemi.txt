@@ -1,0 +1,3 @@
+Per ora:
+- con 8 CPU funzionano fino a 3 Uproc, gli ultimi 4 terminali non vanno mai (anche con una sola CPU)
+- Secondo me la cosa migliore e' capire perche' gli ultimi terminali non vanno 

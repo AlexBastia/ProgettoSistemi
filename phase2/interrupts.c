@@ -98,37 +98,42 @@ static void intHandler(int intlineNo, state_t *current_state) {
     termreg_t *termReg = (termreg_t *)devAddrBase;
     unsigned int trans_stat = termReg->transm_status & TERMSTATMASK;
     unsigned int recv_stat = termReg->recv_status & TERMSTATMASK;
-<<<<<<< Updated upstream
+    klog_print("Trans stat:  ");
+    klog_print_dec(trans_stat);
+    klog_print("\n");
+    klog_print("Recv stat:  ");
+    klog_print_dec(recv_stat);
+    klog_print("\n");
 
     // PRIMA controlla se l'interruzione è per la TRASMISSIONE completata
-    if (trans_stat>1 && trans_stat<= OKCHARTRANS) {  // Lo stato 5 significa "Character Transmitted"
-=======
-    int *devSemaphore = NULL;
-    // PRIMA controlla se l'interruzione è per la TRASMISSIONE completata
-    if (trans_stat == OKCHARTRANS) {  // Lo stato 5 significa "Character Transmitted"
->>>>>>> Stashed changes
+    if (trans_stat > 1 && trans_stat <= OKCHARTRANS) {  // Lo stato 5 significa "Character Transmitted"
       status = termReg->transm_status;
       termReg->transm_command = ACK;  // Accusa (ACK) il sub-device di trasmissione
 
       // Trova il semaforo corretto per il sub-device di TRASMISSIONE
-
-      devSemaphore = &device_semaphores[findDeviceIndex((memaddr *)&termReg->transm_command)];
+      int index = findDeviceIndex((memaddr *)&termReg->transm_command);
+      klog_print("Dev index: ");
+      klog_print_dec(index);
+      klog_print("\n");
+      devSemaphore = &device_semaphores[index];
     }
     // ALTRIMENTI, controlla se l'interruzione è per la RICEZIONE completata
-<<<<<<< Updated upstream
-    else if (recv_stat>1 && recv_stat<= CHARRECV) {  // Lo stato 5 significa "Character Received"
-      klog_print("Carattere ricevuto \n");
-=======
-    else if (recv_stat == CHARRECV) {  // Lo stato 5 significa "Character Received"
-      klog_print("Carattere ricevuto \n");  
->>>>>>> Stashed changes
+    else if (recv_stat > 1 && recv_stat <= CHARRECV) {  // Lo stato 5 significa "Character Received"
       status = termReg->recv_status;
       termReg->recv_command = ACK;  // Accusa (ACK) il sub-device di ricezione
 
       // Trova il semaforo corretto per il sub-device di RICEZIONE
-        devSemaphore = &device_semaphores[findDeviceIndex((memaddr *)&termReg->recv_command)];
+      int index = findDeviceIndex((memaddr *)&termReg->recv_command);
+      klog_print("Dev index: ");
+      klog_print_dec(index);
+      klog_print("\n");
+      devSemaphore = &device_semaphores[index];
     }
 
+    else {
+      termReg->recv_command = ACK;
+      termReg->transm_command = ACK;
+    }
 
   } else {
     /* --- Gestione per tutti gli altri dispositivi (Disk, Flash, Printer, etc.) --- */
@@ -138,10 +143,9 @@ static void intHandler(int intlineNo, state_t *current_state) {
 
     int deviceID = findDeviceIndex((memaddr *)devAddrBase);
     devSemaphore = &device_semaphores[deviceID];
-
   }
 
-    // Se abbiamo gestito un'interruzione valida (trasmissione o ricezione), sblocchiamo il processo
+  // Se abbiamo gestito un'interruzione valida (trasmissione o ricezione), sblocchiamo il processo
   if (devSemaphore != NULL) {
     (*devSemaphore)++;
     unblocked = removeBlocked(devSemaphore);
