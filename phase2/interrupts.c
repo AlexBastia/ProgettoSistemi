@@ -9,10 +9,6 @@
 #define TERMSTATMASK 0xFF
 #define RECVD 5
 
-extern void klog_print(char *);
-extern void klog_print_dec(int);
-extern void klog_print_hex(int);
-
 /*
 gets device type (int. line) from the exception code
 */
@@ -98,12 +94,6 @@ static void intHandler(int intlineNo, state_t *current_state) {
     termreg_t *termReg = (termreg_t *)devAddrBase;
     unsigned int trans_stat = termReg->transm_status & TERMSTATMASK;
     unsigned int recv_stat = termReg->recv_status & TERMSTATMASK;
-    klog_print("Trans stat:  ");
-    klog_print_dec(trans_stat);
-    klog_print("\n");
-    klog_print("Recv stat:  ");
-    klog_print_dec(recv_stat);
-    klog_print("\n");
 
     // PRIMA controlla se l'interruzione è per la TRASMISSIONE completata
     if (trans_stat > 1 && trans_stat <= OKCHARTRANS) {  // Lo stato 5 significa "Character Transmitted"
@@ -112,9 +102,6 @@ static void intHandler(int intlineNo, state_t *current_state) {
 
       // Trova il semaforo corretto per il sub-device di TRASMISSIONE
       int index = findDeviceIndex((memaddr *)&termReg->transm_command);
-      klog_print("Dev index: ");
-      klog_print_dec(index);
-      klog_print("\n");
       devSemaphore = &device_semaphores[index];
     }
     // ALTRIMENTI, controlla se l'interruzione è per la RICEZIONE completata
@@ -124,9 +111,6 @@ static void intHandler(int intlineNo, state_t *current_state) {
 
       // Trova il semaforo corretto per il sub-device di RICEZIONE
       int index = findDeviceIndex((memaddr *)&termReg->recv_command);
-      klog_print("Dev index: ");
-      klog_print_dec(index);
-      klog_print("\n");
       devSemaphore = &device_semaphores[index];
     }
 

@@ -8,10 +8,6 @@
 #include "headers/interrupts.h"
 #include "headers/scheduler.h"
 
-extern void klog_print(char*);
-extern void klog_print_dec(int);
-extern void klog_print_hex(int);
-
 /*
 Function to handle syscall exceptions
 */
@@ -30,13 +26,6 @@ void exceptionHandler() {
 
   unsigned int raw_cause = getCAUSE();  // Legge il registro CAUSE una sola volta
 
-  // --- BLOCCO DI DEBUG FASE 2 ---
-  klog_print("\n>> NUCLEUS: exceptionHandler con causa:");
-  klog_print_hex(raw_cause);
-  klog_print(" e PC : ");
-  klog_print_hex(current_state->pc_epc);
-  klog_print("\n");
-  // --- FINE BLOCCO DI DEBUG ---
 
   // Estrae il codice dell'eccezione dal valore raw
   unsigned int cause = raw_cause & CAUSE_EXCCODE_MASK;
@@ -56,9 +45,6 @@ void exceptionHandler() {
 
 static void syscallHandler(state_t* state) {
   int syscall_code = state->reg_a0;
-  klog_print("SYScall code: ");
-  klog_print_dec(syscall_code);
-  klog_print("\n");
   cpu_t end_time = 0;
 
   if (!(state->status & MSTATUS_MPP_MASK) && syscall_code < 0) {  // if the MPP bit is not set, the syscall was called in user mode
@@ -303,10 +289,6 @@ static void passUpordie(int exception, state_t* exc_state) {
   support_t* sup = current->p_supportStruct;
   sup->sup_exceptState[exception] = *exc_state;
   context_t* ctx = &sup->sup_exceptContext[exception];
-
-  klog_print("PassUp con cause: ");
-  klog_print_dec(sup->sup_exceptState[exception].cause);
-  klog_print("\n");
 
   RELEASE_LOCK(&global_lock);
 

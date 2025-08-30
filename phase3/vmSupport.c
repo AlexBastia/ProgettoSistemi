@@ -1,11 +1,6 @@
 #include "headers/vmSupport.h"
 #include "headers/sysSupport.h"
 
-
-extern void klog_print(char*);
-extern void klog_print_dec(int);
-extern void klog_print_hex(unsigned int);
-
 // Prototipi delle funzioni statiche
 static void updateTLB(pteEntry_t* p);
 static int isSwapFrameFree(int frame);
@@ -33,6 +28,7 @@ void pager() {
             if(sup->sup_privatePgTbl[p].pte_entryLO & ENTRYLO_VALID){
                 releaseMutex(&swap_pool_sem, pid);
                 LDST(current_state);
+                return;
             }
         }
     }
@@ -47,11 +43,9 @@ void pager() {
 
         updateTLB(k_pte);
         read_or_write_flash(victim, k_vpn, x_asid, FLASHWRITE);
-        klog_print("vmSupport: Page-out completato.\n");
     }
     read_or_write_flash(victim, p, asid, FLASHREAD);
    
-    klog_print("vmSupport: Page-in completato.\n");
     update_swap_pool_entry(victim, p, asid, pte_p);
 
     unsigned int pfn = (FRAMEPOOLSTART + (victim * PAGESIZE)) >> ENTRYLO_PFN_BIT;
@@ -64,9 +58,7 @@ void pager() {
     swap_pool_table[victim].sw_pte->pte_entryLO = (pfn << ENTRYLO_PFN_BIT) | VALIDON | DIRTYON;
 
     updateTLB(swap_pool_table[victim].sw_pte);
-    klog_print("vmSupport: Strutture aggiornate.\n");
     releaseMutex(&swap_pool_sem, pid);
-    klog_print("vmSupport: --- Fine Pager. Ritorno al processo. ---\n");
     LDST(current_state);
 }
 

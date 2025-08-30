@@ -1,9 +1,5 @@
 #include "headers/sysSupport.h"
 
-extern void klog_print(char*);
-extern void klog_print_dec(int);
-extern void klog_print_hex(unsigned int);
-
 // Prototipi delle funzioni statiche
 static void syscallSupHandler(state_t* exp_state);
 static void terminateProcess(state_t* exp_state);
@@ -12,37 +8,24 @@ static void SYS4(state_t* exp_state);
 static void SYS5(state_t* exp_state);
 
 void generalExceptionSupportHandler() {
-  klog_print("sysSupport: --- Entrato in generalExceptionSupportHandler ---\n");
   support_t* support = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
   state_t* exp_state = &(support->sup_exceptState[GENERALEXCEPT]);
 
   unsigned int cause_code = (exp_state->cause & CAUSE_EXCCODE_MASK);
 
-  klog_print("sysSupport: ASID del processo: ");
-  klog_print_dec(support->sup_asid);
-  klog_print(", Causa eccezione: ");
-  klog_print_dec(cause_code);
-  klog_print("\n");
-
   if (cause_code == SYSEXCEPTION) {
-    klog_print("sysSupport: Eccezione di tipo SYSCALL. Smistamento...\n");
     syscallSupHandler(exp_state);
   } else {
-    klog_print("sysSupport: Eccezione di tipo Program Trap. Avvio terminazione...\n");
     programTrapHandler(exp_state);
   }
 }
 
 void programTrapHandler(state_t* exp_state) {
-  klog_print("sysSupport: --- Esecuzione di programTrapHandler ---\n");
   terminateProcess(exp_state);
 }
 
 static void syscallSupHandler(state_t* exp_state) {
   int n_syscall = exp_state->reg_a0;
-  klog_print("sysSupport: Gestione SYSCALL numero: ");
-  klog_print_dec(n_syscall);
-  klog_print("\n");
 
   switch (n_syscall) {
     case TERMINATE:
@@ -58,7 +41,6 @@ static void syscallSupHandler(state_t* exp_state) {
       SYS5(exp_state);
       break;
     default:
-      klog_print("sysSupport: SYSCALL non valida! Trattata come Program Trap.\n");
       programTrapHandler(exp_state);
       break;
   }
@@ -67,12 +49,6 @@ static void syscallSupHandler(state_t* exp_state) {
 static void terminateProcess(state_t* exp_state) {
   int asid = ENTRYHI_GET_ASID(exp_state->entry_hi);
   int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
-
-  klog_print("sysSupport: --- Inizio terminazione per ASID: ");
-  klog_print_dec(asid);
-  klog_print(", PID: ");
-  klog_print_dec(pid);
-  klog_print(" ---\n");
 
   releaseAllMutex(pid);
 
@@ -86,16 +62,8 @@ static void SYS3(state_t* exp_state) {
   int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
   unsigned int asid = ENTRYHI_GET_ASID(exp_state->entry_hi);
 
-  klog_print("sysSupport: Inizio SYS3 (WRITEPRINTER) per ASID: ");
-  klog_print_dec(asid);
-  klog_print("\n  Indirizzo virtuale: ");
-  klog_print_hex((unsigned int)virtAddr);
-  klog_print(", Lunghezza: ");
-  klog_print_dec(len);
-  klog_print("\n");
 
   if ((unsigned int)virtAddr < UPROCSTARTADDR || ((unsigned int)virtAddr + len) > USERSTACKTOP || len < 0 || len > MAXSTRLENG) {
-    klog_print("sysSupport: SYS3 ERRORE - Parametri non validi. Terminazione...\n");
     programTrapHandler(exp_state);
     return;
   }
@@ -112,10 +80,6 @@ static void SYS3(state_t* exp_state) {
 
   int status = SYSCALL(DOIO, (int)&(printer_device->command), TRANSMITCHAR, 0);
   releaseMutex(&sharable_dev_sem[dev_index], pid);
-
-  klog_print("sysSupport: SYS3 DOIO completato con stato: ");
-  klog_print_dec(status);
-  klog_print("\n");
 
   if (status == 1) {  // READY
     exp_state->reg_a0 = len;
@@ -143,13 +107,10 @@ static void SYS4(state_t* exp_state) {
 
   int dev_index = findDeviceIndex((memaddr*)&term_dev->transm_command);
   getMutex(&sharable_dev_sem[dev_index], pid);
-  klog_print("sysSupport: Inizio SYS4 (WRITETERMINAL) per ASID: ");
   
   for (int i = 0; i < len; i++) {
     unsigned int command = TRANSMITCHAR | (str[i] << 8);
     unsigned int retvalue = SYSCALL(DOIO, (int)&(term_dev->transm_command), command, 0);
-    klog_print("\nSyscall ritorna ");
-    klog_print_dec(retvalue);
     unsigned int termstat = retvalue & 0xFF;
     if((termstat)!=OKCHARTRANS){
       ret_status = -(int)termstat;
@@ -157,7 +118,6 @@ static void SYS4(state_t* exp_state) {
     }
   }
   releaseMutex(&sharable_dev_sem[dev_index], pid);
-  klog_print("\nsysSupport: SYS4 (WRITETERMINAL) completato con stato: ");
 
   exp_state->reg_a0 = ret_status;
   exp_state->pc_epc += 4;
@@ -205,10 +165,6 @@ static void SYS5(state_t* exp_state) {
     i++;
   }
   releaseMutex(&sharable_dev_sem[dev_index], pid);
-
-  klog_print("sysSupport: SYS5 DOIO completato. Caratteri letti: ");
-  klog_print_dec(i);
-  klog_print("\n");
 
   exp_state->pc_epc += 4;
   LDST(exp_state);
