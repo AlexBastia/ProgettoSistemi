@@ -16,27 +16,6 @@ void generalExceptionSupportHandler() {
   support_t* support = (support_t*)SYSCALL(GETSUPPORTPTR, 0, 0, 0);
   state_t* exp_state = &(support->sup_exceptState[GENERALEXCEPT]);
 
-  // --- BLOCCO DI DEBUG FORENSE ---
-  klog_print("  FORENSE: --- Stato della Page Table al momento del crash ---\n");
-  unsigned int fault_vpn = (exp_state->entry_hi >> VPNSHIFT);
-  int p_index;
-  if (fault_vpn == (USERSTACKTOP >> VPNSHIFT) - 1) {
-    p_index = MAXPAGES - 1;
-  } else {
-    p_index = fault_vpn - (UPROCSTARTADDR >> VPNSHIFT);
-  }
-
-  if (p_index >= 0 && p_index < MAXPAGES) {
-    pteEntry_t* pte_al_crash = &support->sup_privatePgTbl[p_index];
-    klog_print("  FORENSE: Ispezione della PTE per l'indice: ");
-    klog_print_dec(p_index);
-    klog_print("\n");
-    klog_print("  FORENSE: Valore di pte_entryLO trovato: ");
-    klog_print_hex(pte_al_crash->pte_entryLO);
-    klog_print("\n");
-  }
-  klog_print("  FORENSE: --- Fine Blocco ---\n");
-  // --- FINE BLOCCO DI DEBUG FORENSE ---
   unsigned int cause_code = (exp_state->cause & CAUSE_EXCCODE_MASK);
 
   klog_print("sysSupport: ASID del processo: ");
@@ -104,6 +83,7 @@ static void terminateProcess(state_t* exp_state) {
 static void SYS3(state_t* exp_state) {
   int len = exp_state->reg_a2;
   char* virtAddr = (char*)exp_state->reg_a1;
+  int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
   unsigned int asid = ENTRYHI_GET_ASID(exp_state->entry_hi);
 
   klog_print("sysSupport: Inizio SYS3 (WRITEPRINTER) per ASID: ");
@@ -119,12 +99,19 @@ static void SYS3(state_t* exp_state) {
     programTrapHandler(exp_state);
     return;
   }
+  
 
   dtpreg_t* printer_device = (dtpreg_t*)DEV_REG_ADDR(IL_PRINTER, asid - 1);
+  // Configura il device printer e acquisisci il mutex
+  int dev_index = findDeviceIndex((memaddr*)printer_device);
+  getMutex(&sharable_dev_sem[dev_index], pid);
+
+
   printer_device->data0 = (memaddr)virtAddr;
   printer_device->data1 = len;
 
   int status = SYSCALL(DOIO, (int)&(printer_device->command), TRANSMITCHAR, 0);
+  releaseMutex(&sharable_dev_sem[dev_index], pid);
 
   klog_print("sysSupport: SYS3 DOIO completato con stato: ");
   klog_print_dec(status);
@@ -141,19 +128,22 @@ static void SYS3(state_t* exp_state) {
 }
 
 static void SYS4(state_t* exp_state) {
-  // SYSCALL(DOIO, (int)&(term_dev->transm_command), command, 0);
+  int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
   unsigned int asid = ENTRYHI_GET_ASID(exp_state->entry_hi);
   char* str = (char*)exp_state->reg_a1;
   unsigned int len = exp_state->reg_a2;
-  if ((unsigned int)str < UPROCSTARTADDR || (unsigned int)str >= USERSTACKTOP) {
-    programTrapHandler(exp_state);
-    return;
-  }
+    if ((unsigned int)str < UPROCSTARTADDR || ((unsigned int)str + len) > USERSTACKTOP || len <= 0 || len > MAXSTRLENG) {
+      programTrapHandler(exp_state);
+      return;
+    }
+
   //It is an error to write to a terminal device from an address outside of the requesting U-proc’s logical address space ??????????
-  termreg_t* term_dev = (termreg_t*)DEV_REG_ADDR(IL_TERMINAL, asid - 1); 
-  if(len <=0 || len >= MAXSTRLENG){
-    programTrapHandler(exp_state);
-  }
+  termreg_t* term_dev = (termreg_t*)DEV_REG_ADDR(IL_TERMINAL, asid - 1);
+  int ret_status = len; 
+
+  int dev_index = findDeviceIndex((memaddr*)&term_dev->transm_command);
+  getMutex(&sharable_dev_sem[dev_index], pid);
+  klog_print("sysSupport: Inizio SYS4 (WRITETERMINAL) per ASID: ");
   
   for (int i = 0; i < len; i++) {
     unsigned int command = TRANSMITCHAR | (str[i] << 8);
@@ -162,27 +152,35 @@ static void SYS4(state_t* exp_state) {
     klog_print_dec(retvalue);
     unsigned int termstat = retvalue & 0xFF;
     if((termstat)!=OKCHARTRANS){
-      exp_state->reg_a0 = -(int)termstat;
-      exp_state->pc_epc += 4;
-      LDST(exp_state); //STIAMO USCENDO PER ERRORI
-      return;
+      ret_status = -(int)termstat;
+      break;
     }
   }
-  exp_state->reg_a0 = len;
+  releaseMutex(&sharable_dev_sem[dev_index], pid);
+  klog_print("\nsysSupport: SYS4 (WRITETERMINAL) completato con stato: ");
+
+  exp_state->reg_a0 = ret_status;
   exp_state->pc_epc += 4;
   LDST(exp_state);
 }
 
+
 static void SYS5(state_t* exp_state) {
   char* virtAddr = (char*)exp_state->reg_a1;
+  int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
   unsigned int asid = ENTRYHI_GET_ASID(exp_state->entry_hi);
+
   if ((unsigned int)virtAddr < UPROCSTARTADDR || (unsigned int)virtAddr >= USERSTACKTOP) {
     programTrapHandler(exp_state);
     return;
   }
+
   termreg_t* terminal_device = (termreg_t*)DEV_REG_ADDR(IL_TERMINAL, asid - 1);
   int i = 0; // Contatore per i caratteri letti
   
+  int dev_index = findDeviceIndex((memaddr*)&terminal_device->recv_command);
+  getMutex(&sharable_dev_sem[dev_index], pid);
+
   // Ciclo di lettura fino al newline
   while (1) {
     int status = SYSCALL(DOIO, (int)&(terminal_device->recv_command), RECEIVECHAR, 0);
@@ -206,6 +204,7 @@ static void SYS5(state_t* exp_state) {
     virtAddr[i] = received_char;
     i++;
   }
+  releaseMutex(&sharable_dev_sem[dev_index], pid);
 
   klog_print("sysSupport: SYS5 DOIO completato. Caratteri letti: ");
   klog_print_dec(i);
