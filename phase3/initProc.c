@@ -6,7 +6,6 @@
 #include "headers/sysSupport.h"
 #include "headers/vmSupport.h"
 
-#define MSTATUS_FS_INITIAL (1 << 13)
 // Dichiarazioni delle variabili globali
 swap_t swap_pool_table[POOLSIZE];
 supSem swap_pool_sem;
@@ -14,7 +13,6 @@ supSem sharable_dev_sem[NSUPPSEM];
 int masterSemaphore;
 
 void test() {
-
   // Inizializzazione delle strutture dati della Fase 3
   for (int i = 0; i < POOLSIZE; i++) {
     swap_pool_table[i].sw_asid = -1;
@@ -64,7 +62,6 @@ void test() {
     SYSCALL(CREATEPROCESS, (int)&initial_states[i], PROCESS_PRIO_LOW, (int)&supports[i]);
   }
 
-
   // Attesa della terminazione di tutti gli U-proc
   for (int i = 0; i < UPROC_NUM; i++) {
     SYSCALL(PASSEREN, (int)&masterSemaphore, 0, 0);
@@ -73,6 +70,7 @@ void test() {
   SYSCALL(TERMPROCESS, 0, 0, 0);
 }
 
+// Funzioni di supporto per la gestione dei semafori dei device condivisi
 void getMutex(supSem* sem, int pid) {
   SYSCALL(PASSEREN, (int)&sem->value, 0, 0);
   sem->holder_pid = pid;

@@ -12,7 +12,7 @@
         },
         "flash1": {
             "enabled": true,
-            "file": "/home/dario/myfiles/sys/prog/ProgettoSistemi/testers/fibEleven.uriscv"
+            "file": "testers/fibEleven.uriscv"
         },
         "flash2": {
             "enabled": true,
