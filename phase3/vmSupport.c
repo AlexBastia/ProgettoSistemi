@@ -24,14 +24,12 @@ void pager() {
         programTrapHandler(current_state);
         return;
     };
-    getMutex(&swap_pool_sem, pid);
+    getMutex(&swap_pool_sem, pid);  //MUTEX SWAP POOL
     pteEntry_t* pte_p = &sup->sup_privatePgTbl[p];
 
-    for (int i = 0; i < POOLSIZE; i++){                                 //6
+    for (int i = 0; i < POOLSIZE; i++){                                 
         if(swap_pool_table[i].sw_asid==asid && swap_pool_table[i].sw_pageNo == p){
-            CRITICAL_START();
             updateTLB(swap_pool_table[i].sw_pte);
-            CRITICAL_END();
             if(sup->sup_privatePgTbl[p].pte_entryLO & ENTRYLO_VALID){
                 releaseMutex(&swap_pool_sem, pid);
                 LDST(current_state);
@@ -74,11 +72,11 @@ void pager() {
 
 void read_or_write_flash(int frame_i, int vpn, int asid, int op) {
     unsigned int frame_phys = FRAMEPOOLSTART + (frame_i * PAGESIZE);
-    int dev_index = findDeviceIndex((memaddr*)frame_phys);
+    dtpreg_t* flash = (dtpreg_t*)DEV_REG_ADDR(IL_FLASH, asid - 1);
     int pid = SYSCALL(GETPROCESSID, 0, 0, 0);
+    int dev_index = findDeviceIndex((memaddr*)flash);
     getMutex(&sharable_dev_sem[dev_index], pid);
 
-    dtpreg_t* flash = (dtpreg_t*)DEV_REG_ADDR(IL_FLASH, asid - 1);
     flash->data0 = frame_phys;
     unsigned int cmd = ((unsigned int)vpn << 8) | op;
 
