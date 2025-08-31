@@ -23,19 +23,19 @@
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest4.uriscv"
         },
         "flash4": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/terminalTest5.uriscv"
         },
         "flash5": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/strConcat.uriscv"
         },
         "flash6": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/printerTest.uriscv"
         },
         "flash7": {
-            "enabled": false,
+            "enabled": true,
             "file": "/home/itsmesco/Documenti/progetti/sysop/ProgettoSistemi/testers/fibEleven.uriscv"
         },
         "printer0": {
@@ -76,12 +76,12 @@
         }
     },
     "execution-rom": "/usr/local/share/uriscv/exec.rom.uriscv",
-    "num-processors": 1,
+    "num-processors": 8,
     "num-ram-frames": 512,
     "symbol-table": {
         "asid": 64,
         "file": "build/MultiPandOS.stab.uriscv"
     },
     "tlb-floor-address": "0x80000000",
-    "tlb-size": 16
+    "tlb-size": 32
 }
