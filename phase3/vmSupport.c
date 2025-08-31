@@ -49,9 +49,7 @@ void pager() {
 
   unsigned int pfn = (FRAMEPOOLSTART + (victim * PAGESIZE)) >> ENTRYLO_PFN_BIT;
 
-  /* * CORREZIONE DEFINITIVA:
-   * Costruiamo pte_entryLO da zero in un unico passaggio.
-   * Questo è il modo corretto e robusto: combina il PFN (riportato a indirizzo base),
+  /* Costruiamo pte_entryLO da zero in un unico passaggio combinando il PFN (riportato a indirizzo base),
    * il bit di validità e il bit di "dirty".
    */
   swap_pool_table[victim].sw_pte->pte_entryLO = (pfn << ENTRYLO_PFN_BIT) | VALIDON | DIRTYON;
